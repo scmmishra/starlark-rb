@@ -51,3 +51,6 @@ tools/oracle/.cache/
 
 # Fuzzer mismatches
 tools/fuzz/findings/
+
+# Mutant run results
+.mutant/

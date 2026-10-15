@@ -13,24 +13,32 @@ env = { COVERAGE = "1" }
 run = "bundle exec rspec"
 
 [tasks.fuzz]
-description = "Compare our lexer and parser with Go on random inputs"
+description = "Compare our lexer, parser, and resolver with Go on random inputs"
 run = "tools/fuzz/fuzz"
+
+[tasks.mutant]
+description = "Mutation testing: find code changes that no test catches"
+run = "bundle exec mutant run"
 
 [tasks."oracle:setup"]
 description = "Download and build the Go and Java oracles"
 run = "tools/oracle/setup"
 
+[tasks."oracle:golden"]
+description = "Run the oracles on every spec input and rewrite spec/oracle/golden"
+run = "tools/oracle/golden"
+
 [tasks."oracle:go"]
-description = "Compare our lexer and parser against Go"
+description = "Compare our lexer, parser, and resolver with Go's golden output"
 env = { ORACLE = "go" }
 run = "bundle exec rspec spec/oracle"
 
 [tasks."oracle:java"]
-description = "Compare our lexer and parser against Java"
+description = "Compare our lexer, parser, and resolver with Java's golden output"
 env = { ORACLE = "java" }
 run = "bundle exec rspec spec/oracle"
 
-[tasks."oracle:all"]
-description = "Compare our lexer and parser against Go and Java"
-env = { ORACLE = "all" }
+[tasks."oracle:live"]
+description = "Compare with both oracles directly, without golden files"
+env = { ORACLE = "all", ORACLE_LIVE = "1" }
 run = "bundle exec rspec spec/oracle"

@@ -1,0 +1,12 @@
+# Mutation testing. See "Testing tools" in CLAUDE.md.
+# Free for open source projects, which requires usage: opensource.
+usage: opensource
+integration:
+  name: rspec
+includes:
+  - lib
+requires:
+  - starlark
+matcher:
+  subjects:
+    - Starlark*
