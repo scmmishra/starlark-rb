@@ -3,11 +3,12 @@
 require "spec_helper"
 require "open3"
 require "yaml"
+require_relative "../support/oracle_format"
 
 # Compares Starlark::Lexer against the lexer oracles in tools/oracle.
 # Set ORACLE to "go" (the default), "java", or "all".
 #
-# With ORACLE=java, a file listed in java_known_differences.yml is pending with its reasons.
+# With ORACLE=java, a file listed in java_lexer_known_differences.yml is pending with its reasons.
 #
 # If FILE.star has a sibling FILE.expected, the Go comparison uses that file
 # instead of the Go oracle. It records a case where the spec and starlark-go
@@ -23,7 +24,7 @@ module LexerOracle
   SPEC_DIR = File.expand_path("..", __dir__)
   INPUTS = Dir[File.join(SPEC_DIR, "{conformance/testdata,lexer/corpus}/**/*.star")].sort
   ORACLES = { "go" => ["go"], "java" => ["java"], "all" => %w[go java] }.freeze
-  JAVA_KNOWN_DIFFERENCES = YAML.load_file(File.join(__dir__, "java_known_differences.yml")).freeze
+  JAVA_KNOWN_DIFFERENCES = YAML.load_file(File.join(__dir__, "java_lexer_known_differences.yml")).freeze
 
   module_function
 
@@ -74,22 +75,10 @@ module LexerOracle
   def value(token)
     case token.kind.to_s.upcase
     when "IDENT", "INT" then token.value.to_s
-    when "FLOAT" then [token.value].pack("G").unpack1("H*")
-    when "STRING", "BYTES" then quote(token.value)
+    when "FLOAT" then OracleFormat.float_bits(token.value)
+    when "STRING", "BYTES" then OracleFormat.quote(token.value)
     else ""
     end
-  end
-
-  # Matches the oracle format: printable ASCII as is, every other byte as \xHH.
-  def quote(string)
-    body = string.bytes.map do |byte|
-      if byte >= 0x20 && byte < 0x7f && byte != 0x22 && byte != 0x5c
-        byte.chr
-      else
-        format("\\x%02x", byte)
-      end
-    end
-    "\"#{body.join}\""
   end
 end
 
