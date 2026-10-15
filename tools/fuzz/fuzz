@@ -1,0 +1,156 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Differential fuzzer. Compares our lexer and parser with starlark-go on random
+# inputs, and saves every mismatch to tools/fuzz/findings/.
+#
+#   tools/fuzz/fuzz [MODE] [--count N] [--seed S] [--jobs J]
+#
+# MODE is grammar, mutate, unicode, floats, or all (the default).
+# Run `mise run oracle:setup` first. See tools/fuzz/README.md.
+
+require "digest"
+require "fileutils"
+require "open3"
+require "optparse"
+require "tmpdir"
+
+ROOT = File.expand_path("../..", __dir__)
+$LOAD_PATH.unshift(File.join(ROOT, "lib"))
+require "starlark"
+require_relative "../../spec/support/ast_dump"
+require_relative "../../spec/support/token_dump"
+require_relative "generator"
+require_relative "mutator"
+
+ORACLE = File.join(ROOT, "tools/oracle")
+FINDINGS = File.join(__dir__, "findings")
+
+# Inputs where we follow the spec over starlark-go on purpose. A mismatch on
+# an input that matches is expected, and is not saved.
+KNOWN_DIFFERENCE = /\t|\r|\0|\bassert\b|\bwhile\b|\b0[bB]|(?<![\w.])0\d|\bbr['"]/
+KNOWN_DIFFERENCE_BYTES = Regexp.new(KNOWN_DIFFERENCE.source.b, Regexp::NOENCODING)
+
+options = { count: 2000, seed: Random.new_seed % 1_000_000, jobs: 8 }
+OptionParser.new do |o|
+  o.banner = "usage: tools/fuzz/fuzz [grammar|mutate|unicode|floats|all] [options]"
+  o.on("--count N", Integer, "inputs per random mode (default 2000)") { |v| options[:count] = v }
+  o.on("--seed S", Integer, "random seed (default: random)") { |v| options[:seed] = v }
+  o.on("--jobs J", Integer, "parallel oracle runs (default 8)") { |v| options[:jobs] = v }
+end.parse!
+mode = ARGV.shift || "all"
+abort "Oracles are not built. Run: mise run oracle:setup" unless File.exist?(File.join(ORACLE, ".cache/bin/parsedump-go"))
+
+def oracle(tool, path)
+  out, err, status = Open3.capture3(File.join(ORACLE, tool), "go", path)
+  raise "#{tool} oracle failed on #{path}: #{err}" unless status.success?
+
+  out
+end
+
+def ours_parse(source)
+  AstDump.call(Starlark::Parser.parse(source))
+rescue Starlark::SyntaxError => e
+  "#{e.line}:#{e.column} ERROR #{e.message}\n"
+end
+
+def save(kind, source, expected, actual)
+  FileUtils.mkdir_p(FINDINGS)
+  base = File.join(FINDINGS, "#{kind}-#{Digest::SHA256.hexdigest(source)[0, 12]}")
+  File.binwrite("#{base}.star", source)
+  File.write("#{base}.txt", "== go\n#{expected}\n== ours\n#{actual}")
+  "#{base}.star"
+end
+
+# Compares one input with both Go oracles. Returns a list of saved findings.
+def check(source, dir)
+  path = File.join(dir, "#{Thread.current.object_id}-#{Digest::SHA256.hexdigest(source)[0, 16]}.star")
+  File.binwrite(path, source)
+  utf8 = source.dup.force_encoding(Encoding::UTF_8)
+  findings = []
+  { "lex" => -> { TokenDump.call(utf8) }, "parse" => -> { ours_parse(utf8) } }.each do |tool, ours|
+    expected = oracle(tool, path)
+    actual = ours.call
+    next if expected == actual || source.b.match?(KNOWN_DIFFERENCE_BYTES)
+
+    findings << save(tool, source, expected, actual)
+  end
+  findings
+ensure
+  File.delete(path) if path && File.exist?(path)
+end
+
+def run_inputs(name, inputs, jobs)
+  queue = Queue.new
+  inputs.each { |input| queue << input }
+  findings = Queue.new
+  Dir.mktmpdir("starlark-fuzz") do |dir|
+    Array.new(jobs) do
+      Thread.new do
+        while (input = (queue.pop(true) rescue nil))
+          check(input, dir).each { |f| findings << f }
+        end
+      end
+    end.each(&:join)
+  end
+  saved = Array.new(findings.size) { findings.pop }
+  puts format("%-8s %6d inputs, %d mismatches", name, inputs.size, saved.size)
+  saved.first(10).each { |f| puts "  #{f.delete_prefix("#{ROOT}/")}" }
+  saved
+end
+
+def seeds
+  files = Dir[File.join(ROOT, "spec/{parser,lexer}/corpus/*.star")].reject { |f| File.basename(f).start_with?("override_") }
+  chunks = Dir[File.join(ROOT, "spec/conformance/testdata/**/*.star")].flat_map { |f| File.binread(f).split(/^---\n/) }
+  (files.map { |f| File.binread(f) } + chunks).map { |s| s.force_encoding(Encoding::UTF_8) }.select(&:valid_encoding?).reject { |s| s.match?(KNOWN_DIFFERENCE) }
+end
+
+# Compares the letters accepted in identifiers with Go's unicode.IsLetter.
+def unicode_check
+  go = Set.new
+  IO.popen([File.join(ORACLE, ".cache/bin/unicodeletters-go")]).each_line do |line|
+    first, last = line.split.map { |hex| hex.to_i(16) }
+    go.merge(first..last)
+  end
+  ours = (0..0x10FFFF).reject { |c| (0xD800..0xDFFF).cover?(c) }.select { |c| [c].pack("U").match?(/\p{L}/) }.to_set
+  diff = (ours ^ go).to_a.sort
+  puts format("unicode  %6d letters, %d mismatches", go.size, diff.size)
+  diff.first(10).each { |c| puts format("  U+%04X: ours %s, go %s", c, ours.include?(c), go.include?(c)) }
+  diff
+end
+
+# Lexes many float literals in one file and compares their values with Go's.
+def float_inputs(random, count)
+  Array.new([count / 200, 1].max) do
+    Array.new(200) do
+      digits = Array.new(random.rand(1..25)) { random.rand(10) }.join
+      fraction = Array.new(random.rand(0..25)) { random.rand(10) }.join
+      exponent = random.rand(-330..310)
+      case random.rand(4)
+      when 0 then "#{digits}.#{fraction}"
+      when 1 then "#{digits}e#{exponent}"
+      when 2 then ".#{digits}#{fraction}e#{exponent}"
+      else "#{digits.sub(/\A0+(?=\d)/, "")}.#{fraction}e#{exponent}"
+      end
+    end.join("\n") + "\n"
+  end
+end
+
+random = Random.new(options[:seed])
+puts "seed #{options[:seed]}"
+modes = mode == "all" ? %w[grammar mutate unicode floats] : [mode]
+total = 0
+modes.each do |m|
+  total += case m
+           when "grammar"
+             generator = Fuzz::Generator.new(random)
+             run_inputs("grammar", Array.new(options[:count]) { generator.program }, options[:jobs]).size
+           when "mutate"
+             mutator = Fuzz::Mutator.new(random, seeds)
+             run_inputs("mutate", Array.new(options[:count]) { mutator.mutate }, options[:jobs]).size
+           when "unicode" then unicode_check.size
+           when "floats" then run_inputs("floats", float_inputs(random, options[:count] * 10), options[:jobs]).size
+           else abort "unknown mode: #{m}"
+           end
+end
+exit(total.zero? ? 0 : 1)

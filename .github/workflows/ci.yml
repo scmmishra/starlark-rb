@@ -54,9 +54,13 @@ jobs:
           key: oracle-${{ runner.os }}-${{ env.GO_VERSION }}-${{ env.JAVA_VERSION }}-${{ hashFiles('tools/oracle/setup', 'tools/oracle/go/**', 'tools/oracle/java/**') }}
       - name: Build oracles
         run: |
-          if [ ! -x tools/oracle/.cache/bin/lexdump-go ] || [ ! -x tools/oracle/.cache/bin/parsedump-go ]; then
+          if [ ! -x tools/oracle/.cache/bin/lexdump-go ] || [ ! -x tools/oracle/.cache/bin/parsedump-go ] || [ ! -x tools/oracle/.cache/bin/unicodeletters-go ]; then
             tools/oracle/setup
           fi
       - run: bundle exec rspec spec/oracle
         env:
           ORACLE: ${{ matrix.oracle }}
+      # A fixed seed keeps CI repeatable. Run `mise run fuzz` locally for random seeds.
+      - name: Fuzz against Go
+        if: matrix.oracle == 'go'
+        run: tools/fuzz/fuzz --count 1000 --seed 1

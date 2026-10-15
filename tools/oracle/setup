@@ -21,7 +21,7 @@ curl -fsSL "https://codeload.github.com/google/starlark-go/tar.gz/$STARLARK_GO_S
 
 echo "Building Go oracle"
 cp "$ORACLE_DIR/go/syntax/lexdump.go" "$GO_SRC/syntax/zz_lexdump.go"
-for tool in lexdump parsedump; do
+for tool in lexdump parsedump unicodeletters; do
   mkdir -p "$GO_SRC/cmd/$tool"
   cp "$ORACLE_DIR/go/cmd/$tool/main.go" "$GO_SRC/cmd/$tool/main.go"
   (cd "$GO_SRC" && GOTOOLCHAIN=local go build -o "$CACHE/bin/$tool-go" ./cmd/$tool)

@@ -48,3 +48,6 @@ vendor/
 
 # Lexer oracle builds
 tools/oracle/.cache/
+
+# Fuzzer mismatches
+tools/fuzz/findings/

@@ -12,6 +12,10 @@ description = "Run the full suite and measure line and branch coverage"
 env = { COVERAGE = "1" }
 run = "bundle exec rspec"
 
+[tasks.fuzz]
+description = "Compare our lexer and parser with Go on random inputs"
+run = "tools/fuzz/fuzz"
+
 [tasks."oracle:setup"]
 description = "Download and build the Go and Java oracles"
 run = "tools/oracle/setup"
