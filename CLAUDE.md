@@ -36,7 +36,7 @@ Name the spec section in a code comment for each such decision. Add no behavior 
 - **No dynamic dispatch into Ruby.** Never use `send`, `public_send`, `method`, `instance_variable_get`, or `const_get` for Starlark attributes. Each type has an explicit method table. `dir`, `getattr`, and `hasattr` read only that table.
 - **Check sizes before allocating.** The step limit cannot stop one Ruby C call: `1 << 2000000000` allocates 250 MB in one step. Check the result size first for integer `*`, `<<`, `+`, `-`; string and bytes repetition, `+`, `join`, `replace`, `format`, `%`, `split`; list and tuple repetition, `+`, `extend`; ranges; comprehensions; `sorted`, `zip`, and the container constructors.
 - **Step limit.** The evaluator counts steps against a host-set budget.
-- **Depth limit.** Nothing recursive may reach `SystemStackError`: parser, evaluator, `repr`, equality, comparison. The lexer limits bracket nesting to 1000, and the parser limits recursion depth to 1000, as starlark-go does.
+- **Depth limit.** Nothing recursive may reach `SystemStackError`: parser, evaluator, `repr`, equality, comparison. The lexer limits bracket nesting to 1000. The parser counts recursion depth like starlark-go and stops at 1000, which allows about 80 nested brackets. An `elif` chain becomes nested `IfStmt` nodes, so code that walks it must use a loop, as the parser does.
 - **No ambient access.** No IO, clock, randomness, environment, or filesystem. `print` calls a host callback.
 - **Host boundary.** Raise when a string with invalid UTF-8 leaves Starlark. Do not scrub.
 
@@ -69,4 +69,5 @@ bundle exec rspec       # includes the Go oracle specs
 mise run coverage       # full suite with line and branch coverage
 mise run oracle:setup   # build the oracles once
 mise run oracle:go      # or oracle:java, oracle:all
+mise run fuzz           # random inputs against Go, see tools/fuzz/README.md
 ```

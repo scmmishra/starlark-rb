@@ -90,9 +90,11 @@ In these places Go follows the spec and Java does not:
 - Java rejects `\x` escapes. The spec defines them.
 - Java lexes `async` and `await` as identifiers. The spec reserves them.
 - Java keeps the CR of a CRLF line ending inside a multiline string. The spec says such a line ending denotes `\n`.
+- Java accepts a parenthesized keyword argument name, as in `f((a)=1)`. The spec grammar requires `identifier "="`.
 
 These differences are outside the spec:
 
+- Java rejects tabs on blank and comment-only lines. Go accepts them, and we keep Go's behavior.
 - Java emits a `NEWLINE` before `EOF`. Go does not.
 - Java columns for `INDENT` and `OUTDENT` differ from Go's.
 - Java folds concatenated string literals, such as `"a" + "b"`, into one literal.
