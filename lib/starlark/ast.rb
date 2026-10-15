@@ -14,7 +14,8 @@ module Starlark
     File = node(:statements)
 
     # Statements
-    DefStmt = node(:name, :params, :body)
+    # name_line and name_column locate the function name.
+    DefStmt = node(:name, :params, :body, :name_line, :name_column)
     # An elif becomes a nested IfStmt, alone in else_body.
     IfStmt = node(:condition, :then_body, :else_body)
     ForStmt = node(:vars, :iterable, :body)
@@ -49,13 +50,17 @@ module Starlark
 
     # Parts of other nodes
     # kind is :required, :optional, :star, :args, or :kwargs. name is nil for a bare "*".
-    Param = node(:kind, :name, :default)
+    # name_line and name_column locate the name, after any "*" or "**".
+    # eq_line and eq_column locate the "=" of an optional parameter.
+    Param = node(:kind, :name, :default, :name_line, :name_column, :eq_line, :eq_column)
     # kind is :positional, :keyword, :args, or :kwargs. name is set only for :keyword.
     Arg = node(:kind, :name, :value)
     DictEntry = node(:key, :value)
     ForClause = node(:vars, :iterable)
     IfClause = node(:condition)
     # local is the bound name. name is the name exported by the loaded module.
-    LoadBinding = node(:local, :name)
+    # The node's position is the local name's. name_line and name_column
+    # locate the exported name, just inside its opening quote.
+    LoadBinding = node(:local, :name, :name_line, :name_column)
   end
 end

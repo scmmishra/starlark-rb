@@ -92,12 +92,13 @@ module Starlark
 
     def parse_def_stmt
       start = next_token
-      name = parse_ident.name
+      name = parse_ident
       consume(:lparen)
       params = parse_params
       consume(:rparen)
       consume(:colon)
-      DefStmt.new(name: name, params: params, body: parse_suite, **start)
+      DefStmt.new(name: name.name, params: params, body: parse_suite,
+                  name_line: name.line, name_column: name.column, **start)
     end
 
     # An elif becomes a nested IfStmt, alone in the else_body of the clause
@@ -216,7 +217,8 @@ module Starlark
       when :string
         literal = parse_primary
         # starlark-go places the name just inside the opening quote.
-        LoadBinding.new(local: literal.value, name: literal.value, line: literal.line, column: literal.column + 1)
+        LoadBinding.new(local: literal.value, name: literal.value, line: literal.line, column: literal.column + 1,
+                        name_line: literal.line, name_column: literal.column + 1)
       when :ident
         local = parse_ident
         unless @tok.kind == :eq
@@ -226,7 +228,8 @@ module Starlark
         consume(:eq)
         error(%(original name of loaded symbol must be quoted: #{local.name}="originalname")) unless @tok.kind == :string
         literal = parse_primary
-        LoadBinding.new(local: local.name, name: literal.value, line: local.line, column: local.column)
+        LoadBinding.new(local: local.name, name: literal.value, line: local.line, column: local.column,
+                        name_line: literal.line, name_column: literal.column + 1)
       else
         error(%(load operand must be "name" or localname="name" (got #{describe(@tok.kind)})))
       end
@@ -263,20 +266,25 @@ module Starlark
 
     def parse_param
       if @tok.kind == :star || @tok.kind == :starstar
-        op = @tok.kind
+        kind = @tok.kind == :starstar ? :kwargs : :args
         start = next_token
-        return Param.new(kind: :kwargs, name: parse_ident.name, default: nil, **start) if op == :starstar
-        return Param.new(kind: :args, name: parse_ident.name, default: nil, **start) if @tok.kind == :ident
+        return param(:star, nil, nil, start) unless kind == :kwargs || @tok.kind == :ident
 
-        return Param.new(kind: :star, name: nil, default: nil, **start)
+        return param(kind, parse_ident, nil, start)
       end
 
       ident = parse_ident
       start = { line: ident.line, column: ident.column }
-      return Param.new(kind: :required, name: ident.name, default: nil, **start) unless @tok.kind == :eq
+      return param(:required, ident, nil, start) unless @tok.kind == :eq
 
-      next_token
-      Param.new(kind: :optional, name: ident.name, default: parse_test, **start)
+      eq = next_token
+      param(:optional, ident, parse_test, start, eq)
+    end
+
+    def param(kind, ident, default, start, eq = nil)
+      Param.new(kind: kind, name: ident&.name, default: default,
+                name_line: ident&.line, name_column: ident&.column,
+                eq_line: eq&.dig(:line), eq_column: eq&.dig(:column), **start)
     end
 
     # Expressions
