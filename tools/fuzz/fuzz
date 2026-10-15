@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# Differential fuzzer. Compares our lexer and parser with starlark-go on random
+# Differential fuzzer. Compares our lexer, parser, and resolver with starlark-go on random
 # inputs, and saves every mismatch to tools/fuzz/findings/.
 #
 #   tools/fuzz/fuzz [MODE] [--count N] [--seed S] [--jobs J]
@@ -20,6 +20,7 @@ $LOAD_PATH.unshift(File.join(ROOT, "lib"))
 require "starlark"
 require_relative "../../spec/support/ast_dump"
 require_relative "../../spec/support/token_dump"
+require_relative "../../spec/support/resolve_dump"
 require_relative "generator"
 require_relative "mutator"
 
@@ -41,8 +42,13 @@ end.parse!
 mode = ARGV.shift || "all"
 abort "Oracles are not built. Run: mise run oracle:setup" unless File.exist?(File.join(ORACLE, ".cache/bin/parsedump-go"))
 
+# The generator's names are predeclared for the resolver, so most generated
+# programs resolve without undefined names.
+PREDECLARED = Fuzz::Generator::NAMES.reject { |name| Starlark::Resolver::UNIVERSAL.include?(name) }
+ORACLE_ENV = { "STARLARK_ORACLE_PREDECLARED" => PREDECLARED.join(" ") }.freeze
+
 def oracle(tool, path)
-  out, err, status = Open3.capture3(File.join(ORACLE, tool), "go", path)
+  out, err, status = Open3.capture3(ORACLE_ENV, File.join(ORACLE, tool), "go", path)
   raise "#{tool} oracle failed on #{path}: #{err}" unless status.success?
 
   out
@@ -68,10 +74,16 @@ def check(source, dir)
   File.binwrite(path, source)
   utf8 = source.dup.force_encoding(Encoding::UTF_8)
   findings = []
-  { "lex" => -> { TokenDump.call(utf8) }, "parse" => -> { ours_parse(utf8) } }.each do |tool, ours|
+  {
+    "lex" => -> { TokenDump.call(utf8) },
+    "parse" => -> { ours_parse(utf8) },
+    "resolve" => -> { ResolveDump.call(utf8, predeclared: PREDECLARED) }
+  }.each do |tool, ours|
     expected = oracle(tool, path)
     actual = ours.call
     next if expected == actual || source.b.match?(KNOWN_DIFFERENCE_BYTES)
+    # We reject load names that are not identifiers. starlark-go accepts them.
+    next if tool == "resolve" && source.include?("load")
 
     findings << save(tool, source, expected, actual)
   end
