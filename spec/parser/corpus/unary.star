@@ -1,0 +1,13 @@
+x = -a
+x = +a
+x = ~a
+x = not a
+x = - - a
+x = -+~a
+x = not not a
+x = -a.b
+x = -a[0]
+x = -a()
+x = -a * b
+x = -1
+x = ~a + b

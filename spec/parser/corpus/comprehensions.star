@@ -1,0 +1,9 @@
+x = [a for a in b]
+x = [a for a in b if c]
+x = [a for a in b if c if d for e in f]
+x = [(a, b) for a, b in c]
+x = [a for a in b or c]
+x = [a for a in [b for b in c]]
+x = {a: b for a in c}
+x = {a: b for a, b in c.items() if a}
+x = [[a for a in b] for b in c]

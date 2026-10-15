@@ -1,0 +1,17 @@
+# Known differences between our parser and Java Starlark, ignoring positions
+# and error messages. Each path lists the reasons. The parser oracle spec marks
+# these files as pending when ORACLE=java.
+conformance/testdata/go/misc.star:103:
+  - Java folds concatenated string literals
+conformance/testdata/go/misc.star:90:
+  - Java folds concatenated string literals
+conformance/testdata/go/string.star:1:
+  - Java folds concatenated string literals
+conformance/testdata/go/string.star:167:
+  - Java folds concatenated string literals
+conformance/testdata/java/equality.star:1:
+  - Java folds concatenated string literals
+parser/corpus/error_excessive_nesting.star:
+  - Java has no nesting limit
+parser/corpus/literals.star:
+  - Java has no bytes literals

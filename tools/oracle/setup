@@ -21,9 +21,11 @@ curl -fsSL "https://codeload.github.com/google/starlark-go/tar.gz/$STARLARK_GO_S
 
 echo "Building Go oracle"
 cp "$ORACLE_DIR/go/syntax/lexdump.go" "$GO_SRC/syntax/zz_lexdump.go"
-mkdir -p "$GO_SRC/cmd/lexdump"
-cp "$ORACLE_DIR/go/cmd/lexdump/main.go" "$GO_SRC/cmd/lexdump/main.go"
-(cd "$GO_SRC" && GOTOOLCHAIN=local go build -o "$CACHE/bin/lexdump-go" ./cmd/lexdump)
+for tool in lexdump parsedump; do
+  mkdir -p "$GO_SRC/cmd/$tool"
+  cp "$ORACLE_DIR/go/cmd/$tool/main.go" "$GO_SRC/cmd/$tool/main.go"
+  (cd "$GO_SRC" && GOTOOLCHAIN=local go build -o "$CACHE/bin/$tool-go" ./cmd/$tool)
+done
 
 echo "Fetching Java Starlark jar at $STARLARK_JAVA_SHA"
 curl -fsSL "https://github.com/bazelbuild/starlark/raw/$STARLARK_JAVA_SHA/test_suite/starlark_deploy.jar" -o "$JAR"
@@ -31,6 +33,6 @@ curl -fsSL "https://github.com/bazelbuild/starlark/raw/$STARLARK_JAVA_SHA/test_s
 echo "Building Java oracle"
 rm -rf "$CACHE/java"
 mkdir -p "$CACHE/java"
-javac -cp "$JAR" -d "$CACHE/java" "$ORACLE_DIR/java/net/starlark/java/syntax/LexDump.java"
+javac -cp "$JAR" -d "$CACHE/java" "$ORACLE_DIR"/java/net/starlark/java/syntax/*.java
 
-echo "Done. Run: tools/oracle/lex go|java FILE"
+echo "Done. Run: tools/oracle/lex go|java FILE, or tools/oracle/parse go|java FILE"

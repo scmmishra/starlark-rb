@@ -27,7 +27,7 @@ jobs:
       - run: bundle exec rspec --exclude-pattern "spec/oracle/**/*_spec.rb"
 
   oracle:
-    name: Lexer oracle (${{ matrix.oracle }})
+    name: Oracles (${{ matrix.oracle }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -54,7 +54,7 @@ jobs:
           key: oracle-${{ runner.os }}-${{ env.GO_VERSION }}-${{ env.JAVA_VERSION }}-${{ hashFiles('tools/oracle/setup', 'tools/oracle/go/**', 'tools/oracle/java/**') }}
       - name: Build oracles
         run: |
-          if [ ! -x tools/oracle/.cache/bin/lexdump-go ]; then
+          if [ ! -x tools/oracle/.cache/bin/lexdump-go ] || [ ! -x tools/oracle/.cache/bin/parsedump-go ]; then
             tools/oracle/setup
           fi
       - run: bundle exec rspec spec/oracle
