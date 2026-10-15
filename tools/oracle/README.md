@@ -50,6 +50,17 @@ The output stops after the first error. Java can continue past errors, but the o
 
 ## Known differences between the two
 
+Java follows the spec more closely in a few places. `spec/lexer/corpus/README.md` lists the cases where we follow Java and the spec over Go.
+
+In these places Go follows the spec and Java does not:
+
 - Java has no `BYTES` token. The jar does not support bytes literals.
+- Java rejects non-ASCII identifiers. The spec allows Unicode letters.
+- Java rejects `\x` escapes. The spec defines them.
+- Java lexes `async` and `await` as identifiers. The spec reserves them.
+
+These differences are outside the spec:
+
+- Java emits a `NEWLINE` before `EOF`. Go does not.
 - Java columns for `INDENT` and `OUTDENT` differ from Go's.
-- Error messages differ in wording.
+- Error messages and some error positions differ.

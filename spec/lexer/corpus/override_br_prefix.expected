@@ -1,0 +1,10 @@
+3:1	IDENT	x
+3:3	EQ	
+3:5	BYTES	"a\x5cnb"
+3:14	PLUS	
+3:16	BYTES	"a\x5cnb"
+3:25	PLUS	
+3:27	IDENT	BR
+3:29	STRING	"c"
+3:32	NEWLINE	
+4:1	EOF	

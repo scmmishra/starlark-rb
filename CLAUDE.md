@@ -61,6 +61,8 @@ Code lives under `lib/starlark/`. The entry point is `lib/starlark.rb`.
 
 ## Testing
 
+- The lexer is tested against starlark-go and Java Starlark. See `tools/oracle/README.md` and `spec/lexer/corpus/README.md`. Run `mise run oracle:setup` once, then `mise run oracle:go`. Every lexer change must keep `oracle:go` passing.
+- Where the spec and starlark-go disagree, the lexer follows the spec. Each such case has an `override_` file in `spec/lexer/corpus/` with a `.expected` file.
 - Port the upstream conformance suite from `bazelbuild/starlark/test_suite/testdata/{go,java,rust}`. Do not vendor the 4 MB Java jar.
 - The file format:
   - A line containing only `---` separates independent chunks.

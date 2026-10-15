@@ -1,0 +1,4 @@
+4:1	IDENT	x
+4:3	EQ	
+4:5	INT	1
+4:6	ERROR	unexpected input character '\x00'
