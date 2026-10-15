@@ -36,7 +36,7 @@ Name the spec section in a code comment for each such decision. Add no behavior 
 - **No dynamic dispatch into Ruby.** Never use `send`, `public_send`, `method`, `instance_variable_get`, or `const_get` for Starlark attributes. Each type has an explicit method table. `dir`, `getattr`, and `hasattr` read only that table.
 - **Check sizes before allocating.** The step limit cannot stop one Ruby C call: `1 << 2000000000` allocates 250 MB in one step. Check the result size first for integer `*`, `<<`, `+`, `-`; string and bytes repetition, `+`, `join`, `replace`, `format`, `%`, `split`; list and tuple repetition, `+`, `extend`; ranges; comprehensions; `sorted`, `zip`, and the container constructors.
 - **Step limit.** The evaluator counts steps against a host-set budget.
-- **Depth limit.** Nothing recursive may reach `SystemStackError`: parser, evaluator, `repr`, equality, comparison. The lexer limits bracket nesting to 1000.
+- **Depth limit.** Nothing recursive may reach `SystemStackError`: parser, evaluator, `repr`, equality, comparison. The lexer limits bracket nesting to 1000, and the parser limits recursion depth to 1000, as starlark-go does.
 - **No ambient access.** No IO, clock, randomness, environment, or filesystem. `print` calls a host callback.
 - **Host boundary.** Raise when a string with invalid UTF-8 leaves Starlark. Do not scrub.
 
@@ -45,14 +45,14 @@ Name the spec section in a code comment for each such decision. Add no behavior 
 Code is in `lib/starlark/`, loaded by `lib/starlark.rb`.
 
 1. **Lexer** (`lexer.rb`, done). A port of starlark-go's scanner, except where the spec differs.
-2. **Parser.** Hand-written recursive descent. No parser generators. Errors carry line and column.
+2. **Parser** (`parser.rb`, done). A port of starlark-go's recursive-descent parser, except where the spec differs. Builds the nodes in `ast.rb`. No parser generators.
 3. **Resolver.** Binds each name as local, global, free, predeclared, or universal. Reports undefined names before execution. Assigns locals to slots.
 4. **Evaluator.** Walks the resolved AST. No bytecode VM unless benchmarks demand it.
 5. **Embedding API.** Host names, value conversion, limits, and a `load()` callback.
 
 ## Testing
 
-- **Lexer oracles.** `spec/oracle` compares our lexer with starlark-go and Java Starlark. `oracle:go` must pass. Each case where we follow the spec over Go is an `override_` file with a `.expected` file in `spec/lexer/corpus/`. See `tools/oracle/README.md` and `spec/lexer/corpus/README.md`.
+- **Oracles.** `spec/oracle` compares our lexer and parser with starlark-go and Java Starlark. `oracle:go` and `oracle:java` must pass. Each case where we follow the spec over Go is an `override_` file with a `.expected` file in `spec/lexer/corpus/` or `spec/parser/corpus/`. Each known Java difference is listed with a reason in `spec/oracle/java_*_known_differences.yml`. See `tools/oracle/README.md`.
 - **Conformance suite.** Vendored in `spec/conformance/testdata/`. The runner is not written yet. When writing it:
   - A `---` line separates chunks. A trailing `### regex` marks a line that must fail with a matching error, case-insensitive, as substring or regex.
   - Follow `### go:` tags, because Go shares our string model.
