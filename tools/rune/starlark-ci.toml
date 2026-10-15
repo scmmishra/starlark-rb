@@ -1,0 +1,7 @@
+# Link this file to ~/.rune/cards/starlark-ci.toml. See README.md.
+# Rune resolves a relative source path against ~/.rune/cards, so the
+# source names the repo's full path.
+title = "starlark-rb CI"
+refresh = 60
+sizing = "fixed"
+source = "~/Chatwoot/starlark-rb/tools/rune/ci-card"

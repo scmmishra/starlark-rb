@@ -1,0 +1,175 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Source for a Rune card that shows GitHub CI on main and the last local
+# RSpec run. See tools/rune/README.md and Rune's docs/cards.md.
+#
+# Rune stops a card after 10 seconds, so this script never runs the tests.
+# It reads tmp/rspec.json (written by the formatter in .rspec) and
+# coverage/.last_run.json (written by SimpleCov).
+#
+# Uses only the standard library, so it runs without Bundler. Keep it
+# compatible with old Rubies, because Rune may find the system Ruby first.
+
+require "json"
+require "open3"
+require "time"
+
+RSPEC_RESULTS = "tmp/rspec.json"
+COVERAGE_RESULTS = "coverage/.last_run.json"
+LINE_COVERAGE_TARGET = 100.0
+BRANCH_COVERAGE_TARGET = 95.0
+MAX_FAILURE_ROWS = 20
+WATCHED_FILES = ["lib/**/*", "spec/**/*", ".rspec"].freeze
+
+def ago(time)
+  seconds = (Time.now - time).to_i
+  return "just now" if seconds < 60
+  return "#{seconds / 60}m ago" if seconds < 3600
+  return "#{seconds / 3600}h ago" if seconds < 86_400
+
+  "#{seconds / 86_400}d ago"
+end
+
+def count(number, noun)
+  "#{number} #{noun}#{'s' unless number == 1}"
+end
+
+def percent(value)
+  "#{value.to_s.sub(/\.0\z/, '')}%"
+end
+
+def passed(text)
+  { text: "✓ #{text}", tint: "green" }
+end
+
+def failed(text)
+  { text: "✗ #{text}", tint: "red" }
+end
+
+def running(text)
+  { text: "● #{text}", tint: "yellow" }
+end
+
+def outdated(text)
+  { text: "! #{text}", tint: "orange" }
+end
+
+def gh(*args)
+  out, err, status = Open3.capture3("gh", *args)
+  raise(err.lines.first&.strip || "gh failed") unless status.success?
+
+  JSON.parse(out)
+rescue Errno::ENOENT
+  raise "gh is not installed"
+end
+
+def run_badge(jobs)
+  broken = jobs.select { |job| %w[failure timed_out].include?(job["conclusion"]) }
+  return failed("#{broken.size} of #{count(jobs.size, 'job')}") unless broken.empty?
+  return running("running") if jobs.any? { |job| job["status"] != "completed" }
+  return passed(count(jobs.size, "job")) if jobs.all? { |job| job["conclusion"] == "success" }
+
+  { text: jobs.map { |job| job["conclusion"] }.uniq.join(", "), tint: "grey" }
+end
+
+def github_rows
+  runs = gh("run", "list", "--branch", "main", "--workflow", "CI", "--limit", "1",
+            "--json", "databaseId,headSha,createdAt,url")
+  return [{ id: "gh", title: "GitHub · main", subtitle: "No CI runs yet" }] if runs.empty?
+
+  run = runs.first
+  jobs = gh("run", "view", run["databaseId"].to_s, "--json", "jobs")["jobs"]
+  rows = [{ id: "gh", title: "GitHub · main", subtitle: "#{run['headSha'][0, 7]} · #{ago(Time.parse(run['createdAt']))}",
+            badge: run_badge(jobs), action: { open: run["url"] } }]
+  jobs.select { |job| %w[failure timed_out].include?(job["conclusion"]) }.each do |job|
+    rows << { id: "gh-#{job['databaseId']}", title: "↳ #{job['name']}", subtitle: "Open the job log",
+              badge: failed("failed"), action: { open: job["url"] } }
+  end
+  rows
+rescue StandardError => e
+  [{ id: "gh", title: "GitHub · main", subtitle: e.message, badge: failed("error") }]
+end
+
+def newest_change
+  WATCHED_FILES.flat_map { |pattern| Dir.glob(pattern) }
+               .select { |path| File.file?(path) }
+               .map { |path| File.mtime(path) }
+               .max
+end
+
+def spec_path(example)
+  example["file_path"].sub(%r{\A\./}, "")
+end
+
+# A run that skipped some spec files leaves partial counts and coverage.
+def missing_spec_files(examples)
+  Dir.glob("spec/**/*_spec.rb") - examples.map { |example| spec_path(example) }.uniq
+end
+
+def tests_badge(summary, warnings)
+  return failed(count(summary["failure_count"], "failure")) if summary["failure_count"].positive?
+  return failed("load error") if summary["errors_outside_of_examples_count"].positive?
+
+  passing = "#{summary['example_count'] - summary['pending_count']} passed"
+  warnings.empty? ? passed(passing) : outdated(passing)
+end
+
+def test_rows(results, stale)
+  summary = results["summary"]
+  examples = results["examples"]
+  missing = missing_spec_files(examples)
+
+  warnings = []
+  warnings << "#{count(missing.size, 'file')} skipped" unless missing.empty?
+  warnings << "code changed" if stale
+  details = ["#{summary['duration'].round(1)}s", ago(File.mtime(RSPEC_RESULTS))]
+  details << "#{summary['pending_count']} pending" if summary["pending_count"].positive?
+
+  rows = [{ id: "tests", title: "Local tests", subtitle: (details + warnings).join(" · "),
+            badge: tests_badge(summary, warnings) }]
+  failures = examples.select { |example| example["status"] == "failed" }
+  failures.first(MAX_FAILURE_ROWS).each do |example|
+    location = "#{spec_path(example)}:#{example['line_number']}"
+    rows << { id: "fail-#{example['id']}", title: "↳ #{example['full_description']}", subtitle: location,
+              action: { file: location } }
+  end
+  rows << { id: "fail-more", title: "↳ #{failures.size - MAX_FAILURE_ROWS} more" } if failures.size > MAX_FAILURE_ROWS
+  rows
+end
+
+def coverage_row(result, stale)
+  line = result["line"]
+  branch = result["branch"]
+  subtitle = "line #{percent(line)} · branch #{percent(branch)}"
+  badge = if line < LINE_COVERAGE_TARGET || (branch && branch < BRANCH_COVERAGE_TARGET)
+            failed("below target")
+          elsif stale
+            outdated("out of date")
+          else
+            passed("on target")
+          end
+  { id: "coverage", title: "Coverage", subtitle: subtitle, badge: badge }
+end
+
+def local_rows
+  unless File.exist?(RSPEC_RESULTS)
+    return [{ id: "tests", title: "Local tests", subtitle: "Run bundle exec rspec", badge: { text: "no run" } }]
+  end
+
+  changed = newest_change
+  stale = changed && changed > File.mtime(RSPEC_RESULTS)
+  rows = test_rows(JSON.parse(File.read(RSPEC_RESULTS)), stale)
+
+  # SimpleCov writes its file after RSpec's formatter. An older file means
+  # SimpleCov did not finish on the last run.
+  if File.exist?(COVERAGE_RESULTS)
+    stale ||= File.mtime(COVERAGE_RESULTS) < File.mtime(RSPEC_RESULTS)
+    rows << coverage_row(JSON.parse(File.read(COVERAGE_RESULTS))["result"], stale)
+  end
+  rows
+rescue JSON::ParserError => e
+  [{ id: "tests", title: "Local tests", subtitle: e.message, badge: failed("unreadable") }]
+end
+
+puts JSON.generate(items: github_rows + local_rows)
