@@ -33,9 +33,6 @@ jobs:
       fail-fast: false
       matrix:
         oracle: [go, java]
-    # Go and Java disagree on some inputs, so the Java run cannot fully pass.
-    # It reports differences for review and does not block merges.
-    continue-on-error: ${{ matrix.oracle == 'java' }}
     steps:
       - uses: actions/checkout@v4
       - uses: ruby/setup-ruby@v1

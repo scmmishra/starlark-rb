@@ -23,4 +23,4 @@ The spec does not mention NUL bytes. We reject them so that no part of a script 
 
 1. Add a `.star` file here.
 2. Run `mise run oracle:go`. Our lexer must match starlark-go.
-3. Run `mise run oracle:java` or `tools/oracle/lex java FILE`. If Java disagrees, check the spec. If the spec sides against Go, add an `override_` case with a `.expected` file.
+3. Run `mise run oracle:java` or `tools/oracle/lex java FILE`. If Java disagrees, check the spec. If the spec sides against Go, add an `override_` case with a `.expected` file. If Java differs and the spec does not side against Go, add the file to `spec/oracle/java_known_differences.yml` with a reason.

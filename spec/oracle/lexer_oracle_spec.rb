@@ -2,9 +2,12 @@
 
 require "spec_helper"
 require "open3"
+require "yaml"
 
 # Compares Starlark::Lexer against the lexer oracles in tools/oracle.
 # Set ORACLE to "go" (the default), "java", or "all".
+#
+# With ORACLE=java, a file listed in java_known_differences.yml is pending with its reasons.
 #
 # If FILE.star has a sibling FILE.expected, the Go comparison uses that file
 # instead of the Go oracle. It records a case where the spec and starlark-go
@@ -20,6 +23,7 @@ module LexerOracle
   SPEC_DIR = File.expand_path("..", __dir__)
   INPUTS = Dir[File.join(SPEC_DIR, "{conformance/testdata,lexer/corpus}/**/*.star")].sort
   ORACLES = { "go" => ["go"], "java" => ["java"], "all" => %w[go java] }.freeze
+  JAVA_KNOWN_DIFFERENCES = YAML.load_file(File.join(__dir__, "java_known_differences.yml")).freeze
 
   module_function
 
@@ -97,7 +101,10 @@ RSpec.describe "Lexer against oracles" do
   LexerOracle.oracles.each do |oracle|
     describe "#{oracle} oracle" do
       LexerOracle::INPUTS.each do |path|
-        it path.delete_prefix("#{LexerOracle::SPEC_DIR}/") do
+        relative = path.delete_prefix("#{LexerOracle::SPEC_DIR}/")
+        it relative do
+          reasons = LexerOracle::JAVA_KNOWN_DIFFERENCES[relative] if oracle == "java"
+          pending(reasons.join("; ")) if reasons
           expect(LexerOracle.ours(path)).to eq(LexerOracle.expected(oracle, path))
         end
       end

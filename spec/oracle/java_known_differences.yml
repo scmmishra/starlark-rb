@@ -1,0 +1,166 @@
+# Known differences between our lexer and Java Starlark.
+# Each path lists the reasons Java differs from our lexer, which follows starlark-go or the spec.
+# The oracle spec marks these files as pending when ORACLE=java.
+conformance/testdata/go/assign.star:
+  - Java puts INDENT and OUTDENT at different columns
+conformance/testdata/go/control.star:
+  - Java puts INDENT and OUTDENT at different columns
+conformance/testdata/go/dict.star:
+  - Java puts INDENT and OUTDENT at different columns
+conformance/testdata/go/function.star:
+  - Java puts INDENT and OUTDENT at different columns
+conformance/testdata/go/int.star:
+  - Java puts INDENT and OUTDENT at different columns
+conformance/testdata/go/list.star:
+  - Java puts INDENT and OUTDENT at different columns
+conformance/testdata/go/string.star:
+  - Java puts INDENT and OUTDENT at different columns
+conformance/testdata/java/int.star:
+  - Java puts INDENT and OUTDENT at different columns
+conformance/testdata/java/reversed.star:
+  - Java puts INDENT and OUTDENT at different columns
+conformance/testdata/java/string_elems.star:
+  - Java emits NEWLINE before EOF
+  - Java puts INDENT and OUTDENT at different columns
+conformance/testdata/rust/mutation_during_iteration.star:
+  - Java puts INDENT and OUTDENT at different columns
+lexer/corpus/blank_lines_only.star:
+  - Java emits NEWLINE before EOF
+lexer/corpus/bytes.star:
+  - Java has no bytes literals
+lexer/corpus/comment_only.star:
+  - Java emits NEWLINE before EOF
+lexer/corpus/comment_only_no_newline.star:
+  - Java emits NEWLINE before EOF
+lexer/corpus/comments.star:
+  - Java emits NEWLINE before EOF
+lexer/corpus/crlf.star:
+  - Java keeps the CR of a CRLF line ending
+  - Java puts INDENT and OUTDENT at different columns
+lexer/corpus/empty.star:
+  - Java emits NEWLINE before EOF
+lexer/corpus/error_at_sign.star:
+  - Error message or position differs
+lexer/corpus/error_backquote.star:
+  - Error message or position differs
+lexer/corpus/error_backslash_at_eof.star:
+  - Java emits NEWLINE before EOF
+  - Error message or position differs
+lexer/corpus/error_bang.star:
+  - Error message or position differs
+lexer/corpus/error_bom.star:
+  - Error message or position differs
+lexer/corpus/error_dollar.star:
+  - Error message or position differs
+lexer/corpus/error_escape_at_eof.star:
+  - Error message or position differs
+lexer/corpus/error_escape_prefixed_string_position.star:
+  - Java has no bytes literals
+  - Error message or position differs
+lexer/corpus/error_excessive_nesting.star:
+  - Java emits NEWLINE before EOF
+  - Java accepts input the spec rejects
+lexer/corpus/error_float_exponent_empty.star:
+  - Error message or position differs
+lexer/corpus/error_float_exponent_sign_only.star:
+  - Error message or position differs
+lexer/corpus/error_float_too_large.star:
+  - Error message or position differs
+lexer/corpus/error_form_feed.star:
+  - Error message or position differs
+lexer/corpus/error_hex_escape_invalid.star:
+  - Error message or position differs
+lexer/corpus/error_hex_escape_nonascii.star:
+  - Error message or position differs
+lexer/corpus/error_hex_escape_truncated.star:
+  - Error message or position differs
+lexer/corpus/error_invalid_escape.star:
+  - Error message or position differs
+lexer/corpus/error_invalid_escape_nonascii.star:
+  - Error message or position differs
+lexer/corpus/error_leading_zero_decimal.star:
+  - Error message or position differs
+lexer/corpus/error_nonletter_unicode.star:
+  - Error message or position differs
+lexer/corpus/error_obsolete_octal.star:
+  - Error message or position differs
+lexer/corpus/error_octal_escape_bytes_too_big.star:
+  - Java has no bytes literals
+  - Error message or position differs
+lexer/corpus/error_octal_escape_nonascii.star:
+  - Java emits NEWLINE before EOF
+  - Java accepts input the spec rejects
+lexer/corpus/error_octal_literal_digit.star:
+  - Error message or position differs
+lexer/corpus/error_octal_literal_empty.star:
+  - Error message or position differs
+lexer/corpus/error_question.star:
+  - Error message or position differs
+lexer/corpus/error_stray_backslash.star:
+  - Java emits NEWLINE before EOF
+  - Error message or position differs
+lexer/corpus/error_unexpected_close_brace.star:
+  - Error message or position differs
+lexer/corpus/error_unexpected_close_paren.star:
+  - Error message or position differs
+lexer/corpus/error_unicode_digit_in_identifier.star:
+  - Error message or position differs
+lexer/corpus/error_unicode_escape_invalid.star:
+  - Error message or position differs
+lexer/corpus/error_unicode_escape_out_of_range.star:
+  - Error message or position differs
+lexer/corpus/error_unicode_escape_surrogate.star:
+  - Error message or position differs
+lexer/corpus/error_unicode_escape_truncated.star:
+  - Error message or position differs
+lexer/corpus/error_unindent_mismatch.star:
+  - Java puts INDENT and OUTDENT at different columns
+  - Error message or position differs
+lexer/corpus/error_unterminated_string.star:
+  - Error message or position differs
+lexer/corpus/error_unterminated_string_eof.star:
+  - Error message or position differs
+lexer/corpus/error_unterminated_triple.star:
+  - Error message or position differs
+lexer/corpus/identifiers.star:
+  - Java rejects non-ASCII identifiers
+lexer/corpus/indentation.star:
+  - Java puts INDENT and OUTDENT at different columns
+lexer/corpus/indentation_blank_lines.star:
+  - Java puts INDENT and OUTDENT at different columns
+lexer/corpus/indentation_comments.star:
+  - Java emits NEWLINE before EOF
+  - Java puts INDENT and OUTDENT at different columns
+lexer/corpus/indentation_eof_inside_block.star:
+  - Java emits NEWLINE before EOF
+  - Java puts INDENT and OUTDENT at different columns
+lexer/corpus/indentation_eof_inside_block_newline.star:
+  - Java emits NEWLINE before EOF
+  - Java puts INDENT and OUTDENT at different columns
+lexer/corpus/indentation_multi_dedent.star:
+  - Java puts INDENT and OUTDENT at different columns
+lexer/corpus/indentation_one_space.star:
+  - Java emits NEWLINE before EOF
+  - Java puts INDENT and OUTDENT at different columns
+lexer/corpus/keywords.star:
+  - Java lexes async and await as identifiers
+lexer/corpus/line_continuation.star:
+  - Java emits NEWLINE before EOF
+  - Java puts INDENT and OUTDENT at different columns
+lexer/corpus/no_trailing_newline.star:
+  - Java emits NEWLINE before EOF
+lexer/corpus/override_binary_literal.star:
+  - Error message or position differs
+lexer/corpus/override_br_prefix.star:
+  - Java has no bytes literals
+lexer/corpus/override_double_zero.star:
+  - Error message or position differs
+lexer/corpus/override_lone_cr.star:
+  - Java emits NEWLINE before EOF
+  - Java puts INDENT and OUTDENT at different columns
+lexer/corpus/override_nul_byte.star:
+  - Error message or position differs
+lexer/corpus/strings_escapes.star:
+  - Java rejects escapes the spec defines
+lexer/corpus/strings_unicode_text.star:
+  - Java rejects escapes the spec defines
