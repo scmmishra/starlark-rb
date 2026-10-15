@@ -1,5 +1,5 @@
 [tools]
-ruby = "3.3.0"
+ruby = "3.4.4"
 
 [env]
 _.path = ["./bin"]

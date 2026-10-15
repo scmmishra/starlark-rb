@@ -1,6 +1,6 @@
 source "https://rubygems.org"
 
-ruby "3.3.0"
+ruby "3.4.4"
 
 group :development, :test do
   gem "rspec", "~> 3.12"
