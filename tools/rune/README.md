@@ -4,7 +4,7 @@ A [Rune](https://github.com/scmmishra/rune) card that shows CI for this repo. It
 
 - **GitHub · main.** The latest `CI` run on `main`. Click it to open the run. Each failed job adds a row that opens its log.
 - **Local tests.** The last local `bundle exec rspec` run. Each failing example adds a row. Click it to open the example in Rune's drawer.
-- **Coverage.** Line and branch coverage from that run.
+- **Coverage.** Line and branch coverage from the last `mise run coverage`. A plain `bundle exec rspec` does not measure coverage.
 
 ## Setup
 
@@ -25,7 +25,7 @@ Rune stops a card after 10 seconds, so the card never runs the tests. It reads f
 | File | Written by |
 |---|---|
 | `tmp/rspec.json` | The JSON formatter in `.rspec` |
-| `coverage/.last_run.json` | SimpleCov, from `spec/spec_helper.rb` |
+| `coverage/.last_run.json` | SimpleCov, when `COVERAGE=1` is set, as in `mise run coverage` |
 
 The badges mean:
 

@@ -7,6 +7,11 @@ java = "temurin-21.0.12+8.0.LTS"
 [env]
 _.path = ["./bin"]
 
+[tasks.coverage]
+description = "Run the full suite and measure line and branch coverage"
+env = { COVERAGE = "1" }
+run = "bundle exec rspec"
+
 [tasks."oracle:setup"]
 description = "Download and build the Go and Java oracles"
 run = "tools/oracle/setup"

@@ -65,7 +65,8 @@ Code is in `lib/starlark/`, loaded by `lib/starlark.rb`.
 ```bash
 mise install            # Ruby, Go, Java
 bundle install
-bundle exec rspec       # includes the Go oracle spec
+bundle exec rspec       # includes the Go oracle specs
+mise run coverage       # full suite with line and branch coverage
 mise run oracle:setup   # build the oracles once
 mise run oracle:go      # or oracle:java, oracle:all
 ```
