@@ -15,9 +15,16 @@ Each `.star` file is one lexer test case. `spec/oracle/lexer_oracle_spec.rb` lex
 | `override_tab_indent` | accepts tabs in indentation | error | error |
 | `override_br_prefix` | lexes `br'x'` as `br` and `'x'` | raw bytes literal | has no bytes literals |
 | `override_lone_cr` | a lone CR is a newline | a lone CR is white space, or a literal character in a string | same as this lexer |
+| `override_escaped_lone_cr` | a backslash and a lone CR end a line | the same values, with the lone CR not counted as a new line | same as this lexer |
 | `override_nul_byte` | a NUL byte ends the file | error | error |
+| `override_float_long_mantissa` | `1` with 5000 zeros and `e-5000` is 0.0 | 1.0 | 1.0 |
+| `override_octal_big` | rejects octal literals above 64 bits | accepts them | accepts them |
 
 The spec does not mention NUL bytes. We reject them so that no part of a script is skipped without an error.
+
+## Kept from starlark-go on purpose
+
+`tab_blank_and_comment_lines` has tabs in the leading whitespace of blank and comment-only lines. starlark-go accepts them, and so do we, because it is more permissive. Java Starlark rejects them. The spec says indentation is spaces only, but does not say whether these lines count as indentation.
 
 ## Adding a case
 

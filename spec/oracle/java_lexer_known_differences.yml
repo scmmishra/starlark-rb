@@ -159,6 +159,8 @@ lexer/corpus/override_br_prefix.star:
   - Java has no bytes literals
 lexer/corpus/override_double_zero.star:
   - Error message or position differs
+lexer/corpus/override_escaped_lone_cr.star:
+  - Java has no bytes literals
 lexer/corpus/override_lone_cr.star:
   - Java emits NEWLINE before EOF
   - Java puts INDENT and OUTDENT at different columns
@@ -168,3 +170,5 @@ lexer/corpus/strings_escapes.star:
   - Java rejects escapes the spec defines
 lexer/corpus/strings_unicode_text.star:
   - Java rejects escapes the spec defines
+lexer/corpus/tab_blank_and_comment_lines.star:
+  - Java rejects tabs on blank and comment lines

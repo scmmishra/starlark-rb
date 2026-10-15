@@ -6,3 +6,4 @@ x = 1y = 2 # commentz
 a = 'pq' + '''rs'''
 if a:
       b
+r = r'g\h'

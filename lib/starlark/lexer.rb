@@ -164,6 +164,10 @@ module Starlark
       end
 
       blank = c.nil? || c == "#" || c == "\n"
+      # A blank or comment-only line returns before the tab check below, so its
+      # leading whitespace may contain tabs. This is starlark-go's behavior,
+      # kept on purpose because it is more permissive. Java Starlark rejects
+      # such tabs. The spec does not say whether these lines count as indentation.
       return blank if blank || @depth.positive?
 
       # Spec, "Special tokens": indentation can only be composed of spaces.
@@ -354,7 +358,9 @@ module Starlark
 
         escape = rest.getbyte(1)
         case escape.chr
-        when "\n"
+        # An escaped newline is ignored. A lone "\r" counts here too, as in
+        # Java Starlark and starlark-go, though it is white space elsewhere.
+        when "\n", "\r"
           rest = rest.byteslice(2..)
         when *ONE_CHAR_ESCAPES.keys
           out << ONE_CHAR_ESCAPES.fetch(escape.chr)
