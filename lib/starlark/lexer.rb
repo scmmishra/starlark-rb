@@ -63,6 +63,12 @@ module Starlark
       @line_start = true
     end
 
+    # The position just after the last token read. starlark-go reports many
+    # parse errors here.
+    def position
+      [@line, @col]
+    end
+
     def tokenize
       tokens = []
       loop do
