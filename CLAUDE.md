@@ -58,7 +58,15 @@ Code is in `lib/starlark/`, loaded by `lib/starlark.rb`.
   - Follow `### go:` tags, because Go shares our string model.
   - A failed `assert_eq` must fail the test. The upstream runner misses this.
   - Leave cases marked `_inconsistency_` commented out unless the spec defines them.
+- **Golden files.** The oracle specs compare against the oracles' stored output in `spec/oracle/golden`, so they need neither Go nor Java and run in seconds. After adding or changing a corpus file, run `mise run oracle:golden` and commit the result. CI fails if the golden files are out of date.
 - Write RSpec tests for each spec section as it is implemented.
+
+## Testing tools
+
+- **mutant** (in use). Mutation testing: it changes our code in small ways and reports changes no test catches. Run `mise run mutant`, or `bundle exec mutant run 'Starlark::Resolver*'` for one class. Config is in `.mutant.yml`. It is free for open source with `usage: opensource`. Commercial use needs a paid license. Tests for a class must sit under `RSpec.describe Starlark::ClassName`, or mutant does not select them. Some surviving mutants cannot change behavior. Remove the dead code they point at, or leave them, but do not write tests that only exist to kill them.
+- **prop_check** (planned, for the builtins). Property-based testing with shrinking, for rules that no oracle checks. Examples: string methods never raise a Ruby error on invalid UTF-8, size checks raise before large allocations, and `hash()` matches Java's `String.hashCode`.
+- **benchmark-ips** (planned). Use it before any speed decision, such as tree-walking versus closure compilation in the evaluator, or `StringScanner` in the lexer.
+- **Ruzzy** (planned, for the evaluator). A coverage-guided fuzzer from Trail of Bits. A harness would run untrusted scripts under tight step and memory limits, and fail on any Ruby exception, hang, or memory blowup. It needs a native build with LLVM clang, so it fits a nightly CI job better than every PR.
 
 ## Commands
 
@@ -70,4 +78,6 @@ mise run coverage       # full suite with line and branch coverage
 mise run oracle:setup   # build the oracles once
 mise run oracle:go      # or oracle:java, oracle:all
 mise run fuzz           # random inputs against Go, see tools/fuzz/README.md
+mise run oracle:golden  # rewrite the golden files after a corpus change
+mise run mutant         # mutation testing, see .mutant.yml
 ```
