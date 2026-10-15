@@ -17,8 +17,16 @@ import (
 // The spec's builtins. Keep in sync with tools/oracle/README.md.
 var universal = names("None True False abs any all bool bytes dict dir enumerate fail float getattr hasattr hash int len list max min print range repr reversed set sorted str tuple type zip")
 
-// Names the host adds. The conformance tests use these.
-var predeclared = names("assert_eq assert_ne assert_")
+// Names the host adds. The conformance tests use these. The fuzzer replaces
+// them through STARLARK_ORACLE_PREDECLARED, a space-separated list.
+var predeclared = names(predeclaredList())
+
+func predeclaredList() string {
+	if list, ok := os.LookupEnv("STARLARK_ORACLE_PREDECLARED"); ok {
+		return list
+	}
+	return "assert_eq assert_ne assert_"
+}
 
 func names(s string) map[string]bool {
 	m := map[string]bool{}

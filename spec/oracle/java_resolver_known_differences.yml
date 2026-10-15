@@ -1,0 +1,19 @@
+# Known differences between our resolver and Java Starlark. Each path lists
+# the reasons. The resolver oracle spec marks these files as pending when
+# ORACLE=java.
+conformance/testdata/go/dict.star:175:
+  - Java orders comprehension variables after other locals
+conformance/testdata/go/list.star:287:
+  - Java orders comprehension variables after other locals
+conformance/testdata/go/string.star:433:
+  - Java orders comprehension variables after other locals
+resolver/corpus/comprehension_in_function.star:
+  - Java orders comprehension variables after other locals
+resolver/corpus/error_break_in_nested_def.star:
+  - Java allows break in a function nested inside a loop
+resolver/corpus/error_load_empty.star:
+  - Java accepts load names that are not identifiers
+resolver/corpus/override_load_invalid_identifier.star:
+  - Java accepts load names that are not identifiers
+resolver/corpus/unicode_names.star:
+  - Java rejects non-ASCII identifiers

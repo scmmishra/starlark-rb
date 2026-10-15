@@ -115,7 +115,7 @@ module
 Both dumpers parse the file under the name `input.star`, because some messages include it. Both use the same known names:
 
 - **Universal:** the spec's builtins, `None True False abs any all bool bytes dict dir enumerate fail float getattr hasattr hash int len list max min print range repr reversed set sorted str tuple type zip`.
-- **Predeclared:** `assert_eq assert_ne assert_`, which the conformance tests use.
+- **Predeclared:** `assert_eq assert_ne assert_`, which the conformance tests use. The fuzzer replaces this list through the `STARLARK_ORACLE_PREDECLARED` environment variable, which only the Go dumper reads.
 
 Both use options that match the spec. starlark-go has `Set` on, because `set` is a spec builtin, and every other option off. Java has loading private names, rebinding globals at top level, global load bindings, and loads-first all off.
 
@@ -123,9 +123,9 @@ The Java comparison collapses any error output to "has errors", because Java's w
 
 ## Known differences
 
-Where the spec and starlark-go disagree, we follow the spec. Those cases are `override_` files with `.expected` output, listed in `spec/lexer/corpus/README.md` and `spec/parser/corpus/README.md`.
+Where the spec and starlark-go disagree, we follow the spec. Those cases are `override_` files with `.expected` output, listed in the README of each corpus under `spec/lexer`, `spec/parser`, and `spec/resolver`.
 
-Every file where Java differs from us is listed with a reason in `spec/oracle/java_lexer_known_differences.yml` or `spec/oracle/java_parser_known_differences.yml`. The Java specs mark those files as pending.
+Every file where Java differs from us is listed with a reason in `spec/oracle/java_lexer_known_differences.yml`, `java_parser_known_differences.yml`, or `java_resolver_known_differences.yml`. The Java specs mark those files as pending.
 
 In these places Go follows the spec and Java does not:
 
@@ -135,6 +135,8 @@ In these places Go follows the spec and Java does not:
 - Java lexes `async` and `await` as identifiers. The spec reserves them.
 - Java keeps the CR of a CRLF line ending inside a multiline string. The spec says such a line ending denotes `\n`.
 - Java accepts a parenthesized keyword argument name, as in `f((a)=1)`. The spec grammar requires `identifier "="`.
+- Java accepts any string as a loaded name. The spec says it must be a valid identifier.
+- Java allows `break` in a function nested inside a loop.
 
 These differences are outside the spec:
 
@@ -143,5 +145,5 @@ These differences are outside the spec:
 - Java columns for `INDENT` and `OUTDENT` differ from Go's.
 - Java folds concatenated string literals, such as `"a" + "b"`, into one literal.
 - Java has no limit on expression nesting. Go and we stop at a fixed depth.
-- Java orders some local slots differently when a comprehension variable shares a function with other locals.
+- Java orders comprehension variables after a function's other locals. Go orders all locals by first appearance, and so do we.
 - Error messages and some error positions differ.
