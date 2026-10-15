@@ -1,0 +1,47 @@
+# Ruby
+*.gem
+*.rbc
+__pycache__/
+*.o
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+*.app
+.bundle/
+.byebug_history
+.cache
+.gems
+.irb_history
+.rakeTasks
+.ruby-version
+.ruby-gemset
+Gemfile.lock
+InstalledFiles
+_yardoc/
+bin/
+coverage/
+doc/
+examples/*.o
+examples/*.so
+ext/
+.installed.gems
+lib/bundler/man/
+pkg/
+rdoc/
+spec/reports/
+test/reports/
+tmp/
+vendor/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# mise
+.mise.toml.local
