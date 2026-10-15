@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Downloads the pinned Go and Java Starlark implementations and builds the lexer oracles.
+# Output goes to tools/oracle/.cache, which git ignores.
+set -euo pipefail
+
+STARLARK_GO_SHA=edf86ebe07b2546ad597b165247c644c2782691b
+STARLARK_JAVA_SHA=c0af0ea03dc90d3bbc021394b693e6957cc15030
+
+ORACLE_DIR="$(cd "$(dirname "$0")" && pwd)"
+CACHE="$ORACLE_DIR/.cache"
+GO_SRC="$CACHE/starlark-go"
+JAR="$CACHE/starlark_deploy.jar"
+
+mkdir -p "$CACHE/bin" "$CACHE/java"
+
+echo "Fetching starlark-go at $STARLARK_GO_SHA"
+rm -rf "$GO_SRC"
+mkdir -p "$GO_SRC"
+curl -fsSL "https://codeload.github.com/google/starlark-go/tar.gz/$STARLARK_GO_SHA" |
+  tar -xz -C "$GO_SRC" --strip-components 1
+
+echo "Building Go oracle"
+cp "$ORACLE_DIR/go/syntax/lexdump.go" "$GO_SRC/syntax/zz_lexdump.go"
+mkdir -p "$GO_SRC/cmd/lexdump"
+cp "$ORACLE_DIR/go/cmd/lexdump/main.go" "$GO_SRC/cmd/lexdump/main.go"
+(cd "$GO_SRC" && GOTOOLCHAIN=local go build -o "$CACHE/bin/lexdump-go" ./cmd/lexdump)
+
+echo "Fetching Java Starlark jar at $STARLARK_JAVA_SHA"
+curl -fsSL "https://github.com/bazelbuild/starlark/raw/$STARLARK_JAVA_SHA/test_suite/starlark_deploy.jar" -o "$JAR"
+
+echo "Building Java oracle"
+rm -rf "$CACHE/java"
+mkdir -p "$CACHE/java"
+javac -cp "$JAR" -d "$CACHE/java" "$ORACLE_DIR/java/net/starlark/java/syntax/LexDump.java"
+
+echo "Done. Run: tools/oracle/lex go|java FILE"

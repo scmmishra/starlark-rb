@@ -45,3 +45,6 @@ vendor/
 
 # mise
 .mise.toml.local
+
+# Lexer oracle builds
+tools/oracle/.cache/

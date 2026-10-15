@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Prints the tokens of FILE as lexed by starlark-go or Java Starlark.
+# Run tools/oracle/setup first.
+set -euo pipefail
+
+if [ $# -ne 2 ] || { [ "$1" != go ] && [ "$1" != java ]; }; then
+  echo "usage: tools/oracle/lex go|java FILE" >&2
+  exit 2
+fi
+
+CACHE="$(cd "$(dirname "$0")" && pwd)/.cache"
+
+case "$1" in
+  go) exec "$CACHE/bin/lexdump-go" "$2" ;;
+  java) exec java -cp "$CACHE/java:$CACHE/starlark_deploy.jar" net.starlark.java.syntax.LexDump "$2" ;;
+esac

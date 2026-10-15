@@ -1,5 +1,27 @@
 [tools]
 ruby = "3.4.4"
+# Go and Java run the lexer oracles under tools/oracle. The gem does not need them.
+go = "1.25.14"
+java = "temurin-21.0.12+8.0.LTS"
 
 [env]
 _.path = ["./bin"]
+
+[tasks."oracle:setup"]
+description = "Download and build the Go and Java lexer oracles"
+run = "tools/oracle/setup"
+
+[tasks."oracle:go"]
+description = "Compare our lexer against the Go oracle"
+env = { ORACLE = "go" }
+run = "bundle exec rspec spec/oracle"
+
+[tasks."oracle:java"]
+description = "Compare our lexer against the Java oracle"
+env = { ORACLE = "java" }
+run = "bundle exec rspec spec/oracle"
+
+[tasks."oracle:all"]
+description = "Compare our lexer against both oracles"
+env = { ORACLE = "all" }
+run = "bundle exec rspec spec/oracle"
