@@ -54,7 +54,7 @@ jobs:
           key: oracle-${{ runner.os }}-${{ env.GO_VERSION }}-${{ env.JAVA_VERSION }}-${{ hashFiles('tools/oracle/setup', 'tools/oracle/go/**', 'tools/oracle/java/**') }}
       - name: Build oracles
         run: |
-          if [ ! -x tools/oracle/.cache/bin/lexdump-go ] || [ ! -x tools/oracle/.cache/bin/parsedump-go ] || [ ! -x tools/oracle/.cache/bin/unicodeletters-go ]; then
+          if [ ! -x tools/oracle/.cache/bin/lexdump-go ] || [ ! -x tools/oracle/.cache/bin/parsedump-go ] || [ ! -x tools/oracle/.cache/bin/resolvedump-go ] || [ ! -x tools/oracle/.cache/bin/unicodeletters-go ]; then
             tools/oracle/setup
           fi
       - run: bundle exec rspec spec/oracle

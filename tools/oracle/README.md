@@ -1,6 +1,6 @@
 # Oracles
 
-These tools print what starlark-go and Java Starlark produce for a file: the tokens from their lexers, and the syntax trees from their parsers. Specs in `spec/oracle` compare our lexer and parser against them.
+These tools print what starlark-go and Java Starlark produce for a file: the tokens from their lexers, the syntax trees from their parsers, and the name bindings and static errors from their resolvers. Specs in `spec/oracle` compare our code against them.
 
 The gem does not depend on these tools. They need Go and Java, which `.mise.toml` installs.
 
@@ -11,7 +11,7 @@ mise install
 mise run oracle:setup
 ```
 
-`setup` downloads pinned sources into `tools/oracle/.cache` and builds all four oracles. The pins are at the top of the script.
+`setup` downloads pinned sources into `tools/oracle/.cache` and builds the oracles. The pins are at the top of the script.
 
 - starlark-go: `edf86ebe07b2546ad597b165247c644c2782691b`. The lexer dumper is copied into its `syntax` package, because the scanner is unexported. The parser dumper uses the exported `syntax.Parse`, with all dialect options off.
 - Java Starlark: the jar from `bazelbuild/starlark` at `c0af0ea03dc90d3bbc021394b693e6957cc15030`, the same commit as `docs/spec.md`. Both Java dumpers are in the `net.starlark.java.syntax` package, because `Lexer` is package-private.
@@ -21,6 +21,7 @@ mise run oracle:setup
 ```bash
 tools/oracle/lex go|java FILE
 tools/oracle/parse go|java FILE
+tools/oracle/resolve go|java FILE
 mise run oracle:go      # compare our lexer and parser with Go
 mise run oracle:java    # compare with Java
 ```
@@ -77,6 +78,49 @@ def f(x, y=1):
 
 The Java comparison drops positions and error messages, because Java's columns and wording differ from Go's.
 
+## Resolver output format
+
+The resolver dump runs after a successful parse.
+
+```python
+x = 1
+def f(p):
+    def g():
+        return p + x
+    return g
+```
+
+```
+module
+  locals: 
+  globals: x f
+1:1 Ident x global 0
+2:1 function f
+  locals: p* g
+  free: 
+3:5 function g
+  locals: 
+  free: p*
+4:16 Ident p free 0
+4:20 Ident x global 0
+5:12 Ident g local 1
+```
+
+- **Module.** The first lines list the file's locals and globals in slot order. File locals are `load` bindings and top-level comprehension variables.
+- **Functions.** Each `def` and `lambda` prints a header at its position, with its flags (`varargs`, `kwargs`, `kwonly=N`), then its locals in slot order, parameters first, then its free variables.
+- **Identifiers.** Each identifier used in an expression prints its scope and slot index. Scopes are `local`, `cell`, `free`, `global`, `predeclared`, and `universal`. Predeclared and universal names have no index. Names that only declare, such as parameters, `def` names, `load` names, attribute names, and keyword argument names, are covered by the headers instead.
+- **Cells.** A trailing `*` marks a cell: a local that a nested function captures. Its uses in the defining function print scope `cell`. Its uses in the nested function print scope `free`.
+- **Errors.** A parse error prints one line. Resolver errors print one line each, in the order the resolver reports them, and nothing else. starlark-go reports undefined names last.
+
+Both dumpers parse the file under the name `input.star`, because some messages include it. Both use the same known names:
+
+- **Universal:** the spec's builtins, `None True False abs any all bool bytes dict dir enumerate fail float getattr hasattr hash int len list max min print range repr reversed set sorted str tuple type zip`.
+- **Predeclared:** `assert_eq assert_ne assert_`, which the conformance tests use.
+
+Both use options that match the spec. starlark-go has `Set` on, because `set` is a spec builtin, and every other option off. Java has loading private names, rebinding globals at top level, global load bindings, and loads-first all off.
+
+The Java comparison collapses any error output to "has errors", because Java's wording, order, and extra notes differ.
+
 ## Known differences
 
 Where the spec and starlark-go disagree, we follow the spec. Those cases are `override_` files with `.expected` output, listed in `spec/lexer/corpus/README.md` and `spec/parser/corpus/README.md`.
@@ -99,4 +143,5 @@ These differences are outside the spec:
 - Java columns for `INDENT` and `OUTDENT` differ from Go's.
 - Java folds concatenated string literals, such as `"a" + "b"`, into one literal.
 - Java has no limit on expression nesting. Go and we stop at a fixed depth.
+- Java orders some local slots differently when a comprehension variable shares a function with other locals.
 - Error messages and some error positions differ.

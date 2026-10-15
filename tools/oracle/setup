@@ -16,23 +16,28 @@ mkdir -p "$CACHE/bin" "$CACHE/java"
 echo "Fetching starlark-go at $STARLARK_GO_SHA"
 rm -rf "$GO_SRC"
 mkdir -p "$GO_SRC"
-curl -fsSL "https://codeload.github.com/google/starlark-go/tar.gz/$STARLARK_GO_SHA" |
+curl -fsSL --retry 3 "https://codeload.github.com/google/starlark-go/tar.gz/$STARLARK_GO_SHA" |
   tar -xz -C "$GO_SRC" --strip-components 1
 
 echo "Building Go oracle"
 cp "$ORACLE_DIR/go/syntax/lexdump.go" "$GO_SRC/syntax/zz_lexdump.go"
-for tool in lexdump parsedump unicodeletters; do
+for tool in lexdump parsedump resolvedump unicodeletters; do
   mkdir -p "$GO_SRC/cmd/$tool"
   cp "$ORACLE_DIR/go/cmd/$tool/main.go" "$GO_SRC/cmd/$tool/main.go"
   (cd "$GO_SRC" && GOTOOLCHAIN=local go build -o "$CACHE/bin/$tool-go" ./cmd/$tool)
 done
 
-echo "Fetching Java Starlark jar at $STARLARK_JAVA_SHA"
-curl -fsSL "https://github.com/bazelbuild/starlark/raw/$STARLARK_JAVA_SHA/test_suite/starlark_deploy.jar" -o "$JAR"
+# The jar is pinned and large, so a copy from an earlier run is reused.
+# Delete it to download it again.
+if [ ! -f "$JAR" ]; then
+  echo "Fetching Java Starlark jar at $STARLARK_JAVA_SHA"
+  curl -fsSL --retry 3 "https://github.com/bazelbuild/starlark/raw/$STARLARK_JAVA_SHA/test_suite/starlark_deploy.jar" -o "$JAR.tmp"
+  mv "$JAR.tmp" "$JAR"
+fi
 
 echo "Building Java oracle"
 rm -rf "$CACHE/java"
 mkdir -p "$CACHE/java"
 javac -cp "$JAR" -d "$CACHE/java" "$ORACLE_DIR"/java/net/starlark/java/syntax/*.java
 
-echo "Done. Run: tools/oracle/lex go|java FILE, or tools/oracle/parse go|java FILE"
+echo "Done. Run: tools/oracle/lex, parse, or resolve with go|java FILE"
