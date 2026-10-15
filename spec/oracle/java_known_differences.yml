@@ -82,6 +82,8 @@ lexer/corpus/error_leading_zero_decimal.star:
   - Error message or position differs
 lexer/corpus/error_nonletter_unicode.star:
   - Error message or position differs
+lexer/corpus/error_nonprintable_astral.star:
+  - Error message or position differs
 lexer/corpus/error_obsolete_octal.star:
   - Error message or position differs
 lexer/corpus/error_octal_escape_bytes_too_big.star:
@@ -121,6 +123,8 @@ lexer/corpus/error_unterminated_string.star:
 lexer/corpus/error_unterminated_string_eof.star:
   - Error message or position differs
 lexer/corpus/error_unterminated_triple.star:
+  - Error message or position differs
+lexer/corpus/error_unterminated_triple_backslash.star:
   - Error message or position differs
 lexer/corpus/identifiers.star:
   - Java rejects non-ASCII identifiers
