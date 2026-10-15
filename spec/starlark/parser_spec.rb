@@ -46,6 +46,16 @@ RSpec.describe Starlark::Parser do
     }
   end
 
+  it "parses a long elif chain without exhausting the Ruby stack" do
+    source = "if x:\n  pass\n" + ("elif x:\n  pass\n" * 20_000)
+
+    expect(parse(source).statements.first).to be_a(Starlark::AST::IfStmt)
+  end
+
+  it "rejects a parenthesized name as a keyword argument" do
+    expect { parse("f((a)=1)\n") }.to raise_error(Starlark::SyntaxError, "keyword argument must have form name=expr")
+  end
+
   it "stops deep nesting before the Ruby stack runs out" do
     expect { parse("x = #{"[" * 500}#{"]" * 500}\n") }.to raise_error(Starlark::SyntaxError, "excessive nesting")
   end

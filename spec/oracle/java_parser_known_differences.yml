@@ -13,5 +13,11 @@ conformance/testdata/java/equality.star:1:
   - Java folds concatenated string literals
 parser/corpus/error_excessive_nesting.star:
   - Java has no nesting limit
+parser/corpus/error_keyword_argument_double_parens.star:
+  - Java accepts a parenthesized keyword argument name
+parser/corpus/error_keyword_argument_parenthesized.star:
+  - Java accepts a parenthesized keyword argument name
+parser/corpus/error_keyword_argument_parenthesized_later.star:
+  - Java accepts a parenthesized keyword argument name
 parser/corpus/literals.star:
   - Java has no bytes literals

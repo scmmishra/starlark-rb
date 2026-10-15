@@ -100,30 +100,32 @@ module Starlark
       DefStmt.new(name: name, params: params, body: parse_suite, **start)
     end
 
+    # An elif becomes a nested IfStmt, alone in the else_body of the clause
+    # before it. Clauses are read in a loop, not by recursion, so a long elif
+    # chain cannot exhaust the Ruby stack.
     def parse_if_stmt
+      clauses = [parse_if_clause]
+      clauses << parse_if_clause while @tok.kind == :elif
+
+      else_body = []
+      if @tok.kind == :else
+        next_token
+        consume(:colon)
+        else_body = parse_suite
+      end
+
+      clauses.reverse_each do |start, condition, then_body|
+        else_body = [IfStmt.new(condition: condition, then_body: then_body, else_body: else_body, **start)]
+      end
+      else_body.first
+    end
+
+    # Reads "if cond: suite" or "elif cond: suite".
+    def parse_if_clause
       start = next_token
       condition = parse_test
       consume(:colon)
-      then_body = parse_suite
-      IfStmt.new(condition: condition, then_body: then_body, else_body: parse_else, **start)
-    end
-
-    # Parses what follows an if or elif suite. An elif becomes a nested IfStmt.
-    def parse_else
-      case @tok.kind
-      when :elif
-        start = next_token
-        condition = parse_test
-        consume(:colon)
-        then_body = parse_suite
-        [IfStmt.new(condition: condition, then_body: then_body, else_body: parse_else, **start)]
-      when :else
-        next_token
-        consume(:colon)
-        parse_suite
-      else
-        []
-      end
+      [start, condition, parse_suite]
     end
 
     def parse_for_stmt
@@ -452,7 +454,10 @@ module Starlark
       value = parse_test
       return Arg.new(kind: :positional, name: nil, value: value, **start) unless @tok.kind == :eq
 
-      error("keyword argument must have form name=expr") unless value.is_a?(Ident)
+      # The name must be a bare identifier. "(a)" parses to an Ident too, but
+      # it starts at the "(", not at the name.
+      bare_ident = value.is_a?(Ident) && value.line == start[:line] && value.column == start[:column]
+      error("keyword argument must have form name=expr") unless bare_ident
       next_token
       Arg.new(kind: :keyword, name: value.name, value: parse_test, **start)
     end
