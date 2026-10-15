@@ -33,4 +33,4 @@ A Starlark language interpreter implementation in Ruby.
 
 ## License
 
-MIT
+MIT, except `docs/spec.md` and `spec/conformance/testdata/`. Those come from [bazelbuild/starlark](https://github.com/bazelbuild/starlark) under the Apache License 2.0, included next to them as `LICENSE`.
