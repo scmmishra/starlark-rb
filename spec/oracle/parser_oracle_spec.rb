@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "open3"
 require "yaml"
 require_relative "../support/ast_dump"
 require_relative "../support/oracle_inputs"
 
-# Compares Starlark::Parser against the parser oracles in tools/oracle.
+# Compares Starlark::Parser with starlark-go and Java Starlark. The oracles'
+# output comes from spec/oracle/golden. See spec/support/oracle_inputs.rb.
 # Set ORACLE to "go" (the default), "java", or "all".
 #
 # The Go comparison checks the whole dump, positions included. If FILE.star
@@ -17,7 +17,6 @@ require_relative "../support/oracle_inputs"
 # wording differ from Go's. A file listed in java_parser_known_differences.yml
 # is pending with its reasons.
 module ParserOracle
-  CACHE = File.expand_path("../../tools/oracle/.cache", __dir__)
   ORACLES = { "go" => ["go"], "java" => ["java"], "all" => %w[go java] }.freeze
   JAVA_KNOWN_DIFFERENCES = YAML.load_file(File.join(__dir__, "java_parser_known_differences.yml")) || {}
 
@@ -42,16 +41,14 @@ module ParserOracle
   end
 end
 
-RSpec.describe "Parser against oracles" do
-  before(:all) do
-    raise "Oracles are not built. Run: mise run oracle:setup" unless File.exist?(File.join(ParserOracle::CACHE, "bin/parsedump-go"))
-  end
+RSpec.describe Starlark::Parser, "against oracles" do
+  before(:all) { OracleInputs.require_oracles!("parsedump-go") }
 
   ParserOracle.oracles.each do |oracle|
     describe "#{oracle} oracle" do
-      OracleInputs.collect("parser/corpus").each do |name, path|
+      OracleInputs.for_tool("parse").each do |name, path|
         it name do
-          expected = OracleInputs.expected("parse", oracle, path)
+          expected = OracleInputs.expected("parse", oracle, name, path)
           if oracle == "java"
             reasons = ParserOracle::JAVA_KNOWN_DIFFERENCES[name]
             pending(reasons.join("; ")) if reasons

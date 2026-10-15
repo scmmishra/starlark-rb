@@ -1,23 +1,21 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "open3"
 require "yaml"
 require_relative "../support/token_dump"
+require_relative "../support/oracle_inputs"
 
-# Compares Starlark::Lexer against the lexer oracles in tools/oracle.
+# Compares Starlark::Lexer with starlark-go and Java Starlark. The oracles'
+# output comes from spec/oracle/golden. See spec/support/oracle_inputs.rb.
 # Set ORACLE to "go" (the default), "java", or "all".
 #
-# With ORACLE=java, a file listed in java_lexer_known_differences.yml is pending with its reasons.
-#
 # If FILE.star has a sibling FILE.expected, the Go comparison uses that file
-# instead of the Go oracle. It records a case where the spec and starlark-go
-# disagree. The .star file explains the reason in a comment.
+# instead. It records a case where the spec and starlark-go disagree. The
+# .star file explains the reason in a comment.
+#
+# With ORACLE=java, a file listed in java_lexer_known_differences.yml is
+# pending with its reasons.
 module LexerOracle
-  LEX = File.expand_path("../../tools/oracle/lex", __dir__)
-  CACHE = File.expand_path("../../tools/oracle/.cache", __dir__)
-  SPEC_DIR = File.expand_path("..", __dir__)
-  INPUTS = Dir[File.join(SPEC_DIR, "{conformance/testdata,lexer/corpus}/**/*.star")].sort
   ORACLES = { "go" => ["go"], "java" => ["java"], "all" => %w[go java] }.freeze
   JAVA_KNOWN_DIFFERENCES = YAML.load_file(File.join(__dir__, "java_lexer_known_differences.yml")).freeze
 
@@ -29,38 +27,21 @@ module LexerOracle
     end
   end
 
-  def expected(oracle, path)
-    override = path.sub(/\.star\z/, ".expected")
-    return File.read(override) if oracle == "go" && File.exist?(override)
-
-    run(oracle, path)
-  end
-
-  def run(oracle, path)
-    out, err, status = Open3.capture3(LEX, oracle, path)
-    raise "#{oracle} oracle failed on #{path}: #{err}" unless status.success?
-
-    out
-  end
-
   def ours(path)
     TokenDump.call(File.binread(path).force_encoding(Encoding::UTF_8))
   end
 end
 
-RSpec.describe "Lexer against oracles" do
-  before(:all) do
-    raise "Lexer oracles are not built. Run: mise run oracle:setup" unless Dir.exist?(LexerOracle::CACHE)
-  end
+RSpec.describe Starlark::Lexer, "against oracles" do
+  before(:all) { OracleInputs.require_oracles!("lexdump-go") }
 
   LexerOracle.oracles.each do |oracle|
     describe "#{oracle} oracle" do
-      LexerOracle::INPUTS.each do |path|
-        relative = path.delete_prefix("#{LexerOracle::SPEC_DIR}/")
-        it relative do
-          reasons = LexerOracle::JAVA_KNOWN_DIFFERENCES[relative] if oracle == "java"
+      OracleInputs.for_tool("lex").each do |name, path|
+        it name do
+          reasons = LexerOracle::JAVA_KNOWN_DIFFERENCES[name] if oracle == "java"
           pending(reasons.join("; ")) if reasons
-          expect(LexerOracle.ours(path)).to eq(LexerOracle.expected(oracle, path))
+          expect(LexerOracle.ours(path)).to eq(OracleInputs.expected("lex", oracle, name, path))
         end
       end
     end

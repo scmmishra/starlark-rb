@@ -24,15 +24,15 @@ jobs:
         with:
           ruby-version: ${{ env.RUBY_VERSION }}
           bundler-cache: true
-      - run: bundle exec rspec --exclude-pattern "spec/oracle/**/*_spec.rb"
+      # The oracle specs read golden files, so they need neither Go nor Java.
+      - run: bundle exec rspec
+      - run: bundle exec rspec spec/oracle
+        env:
+          ORACLE: java
 
   oracle:
-    name: Oracles (${{ matrix.oracle }})
+    name: Oracles
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        oracle: [go, java]
     steps:
       - uses: actions/checkout@v4
       - uses: ruby/setup-ruby@v1
@@ -57,10 +57,13 @@ jobs:
           if [ ! -x tools/oracle/.cache/bin/lexdump-go ] || [ ! -x tools/oracle/.cache/bin/parsedump-go ] || [ ! -x tools/oracle/.cache/bin/resolvedump-go ] || [ ! -x tools/oracle/.cache/bin/unicodeletters-go ]; then
             tools/oracle/setup
           fi
-      - run: bundle exec rspec spec/oracle
-        env:
-          ORACLE: ${{ matrix.oracle }}
+      - name: Check that the golden files are current
+        run: |
+          tools/oracle/golden
+          git diff --exit-code spec/oracle/golden || {
+            echo "The golden files are out of date. Run: mise run oracle:golden"
+            exit 1
+          }
       # A fixed seed keeps CI repeatable. Run `mise run fuzz` locally for random seeds.
       - name: Fuzz against Go
-        if: matrix.oracle == 'go'
         run: tools/fuzz/fuzz --count 1000 --seed 1

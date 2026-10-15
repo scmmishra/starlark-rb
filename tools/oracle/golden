@@ -1,0 +1,38 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Runs every oracle on every spec input, and writes the output to the golden
+# files in spec/oracle/golden. The oracle specs compare against those files.
+# Run `mise run oracle:setup` first.
+#
+#   tools/oracle/golden [--jobs J]
+
+require "json"
+require "optparse"
+require_relative "../../spec/support/oracle_inputs"
+
+jobs = 8
+OptionParser.new { |o| o.on("--jobs J", Integer) { |v| jobs = v } }.parse!
+abort "Oracles are not built. Run: mise run oracle:setup" unless Dir.exist?(File.join(OracleInputs::ORACLE_DIR, ".cache/bin"))
+
+FileUtils.mkdir_p(OracleInputs::GOLDEN_DIR)
+OracleInputs::TOOLS.each do |tool|
+  inputs = OracleInputs.for_tool(tool)
+  OracleInputs::ORACLES.each do |oracle|
+    queue = Queue.new
+    inputs.each { |input| queue << input }
+    results = Queue.new
+    Array.new(jobs) do
+      Thread.new do
+        while (input = (queue.pop(true) rescue nil))
+          name, path = input
+          results << [name, OracleInputs.run(tool, oracle, path)]
+        end
+      end
+    end.each(&:join)
+
+    output = Array.new(results.size) { results.pop }.sort.to_h
+    File.write(OracleInputs.golden_path(tool, oracle), "#{JSON.pretty_generate(output)}\n")
+    puts format("%-8s %-5s %4d inputs", tool, oracle, output.size)
+  end
+end

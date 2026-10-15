@@ -22,9 +22,20 @@ mise run oracle:setup
 tools/oracle/lex go|java FILE
 tools/oracle/parse go|java FILE
 tools/oracle/resolve go|java FILE
-mise run oracle:go      # compare our lexer and parser with Go
-mise run oracle:java    # compare with Java
+mise run oracle:go      # compare our lexer, parser, and resolver with Go's golden output
+mise run oracle:java    # compare with Java's golden output
 ```
+
+## Golden files
+
+The specs in `spec/oracle` do not run the oracles. They compare against the oracles' stored output in `spec/oracle/golden`, one JSON file per tool and oracle, keyed by input name. That keeps the suite fast, and it runs without Go or Java.
+
+```bash
+mise run oracle:golden   # run every oracle on every input and rewrite the files
+mise run oracle:live     # compare with the oracles directly, without the files
+```
+
+Run `oracle:golden` after adding or changing a corpus file, and commit the result. CI regenerates the files and fails if they differ from the committed ones.
 
 ## Lexer output format
 

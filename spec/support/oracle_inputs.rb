@@ -1,24 +1,51 @@
 # frozen_string_literal: true
 
 require "fileutils"
+require "json"
+require "open3"
 
-# Lists the inputs for the parser and resolver oracle specs.
+# Lists the inputs for the oracle specs, and supplies the oracles' output.
 #
-# Conformance files hold independent chunks separated by "---" lines. Each
-# chunk is written to its own file, padded with blank lines so that line
-# numbers match the original file.
+# The output comes from golden files in spec/oracle/golden, one JSON file per
+# tool and oracle. Set ORACLE_LIVE=1 to run the oracles instead. Run
+# `mise run oracle:golden` to regenerate the files after adding an input.
+#
+# Conformance files hold independent chunks separated by "---" lines. For
+# the parser and resolver, each chunk is written to its own file, padded with
+# blank lines so that line numbers match the original file.
 module OracleInputs
-  SPEC_DIR = File.expand_path("..", __dir__)
-  CHUNK_DIR = File.expand_path("../../tools/oracle/.cache/chunks", __dir__)
+  ROOT = File.expand_path("../..", __dir__)
+  SPEC_DIR = File.join(ROOT, "spec")
+  ORACLE_DIR = File.join(ROOT, "tools/oracle")
+  GOLDEN_DIR = File.join(SPEC_DIR, "oracle/golden")
+  CHUNK_DIR = File.join(ORACLE_DIR, ".cache/chunks")
   CHUNK_SEPARATOR = "---"
+  TOOLS = %w[lex parse resolve].freeze
+  ORACLES = %w[go java].freeze
 
   module_function
 
-  # Returns [name, path] pairs for a corpus directory and every conformance chunk.
+  def live?
+    ENV["ORACLE_LIVE"] == "1"
+  end
+
+  # Returns [name, path] pairs for one tool.
+  def for_tool(tool)
+    case tool
+    when "lex" then whole_files("{conformance/testdata,lexer/corpus}")
+    when "parse" then collect("parser/corpus")
+    when "resolve" then collect("resolver/corpus")
+    end
+  end
+
+  def whole_files(pattern)
+    Dir[File.join(SPEC_DIR, pattern, "**/*.star")].sort.map { |path| [relative(path), path] }
+  end
+
+  # A corpus directory, plus every conformance chunk.
   def collect(corpus)
-    files = Dir[File.join(SPEC_DIR, corpus, "**/*.star")].map { |path| [relative(path), path] }
     chunks = Dir[File.join(SPEC_DIR, "conformance/testdata/**/*.star")].flat_map { |path| chunk(path) }
-    (chunks + files).sort
+    (chunks + whole_files(corpus)).sort
   end
 
   def relative(path)
@@ -38,14 +65,39 @@ module OracleInputs
     end
   end
 
-  # The expected output: an override file for Go if one exists, else the oracle's.
-  def expected(tool, oracle, path)
+  # The expected output: an override file for Go if one exists, else the
+  # oracle's output from the golden file or a live run.
+  def expected(tool, oracle, name, path)
     override = path.sub(/\.star\z/, ".expected")
     return File.read(override) if oracle == "go" && File.exist?(override)
+    return run(tool, oracle, path) if live?
 
-    out, err, status = Open3.capture3(File.expand_path("../../tools/oracle/#{tool}", __dir__), oracle, path)
+    golden(tool, oracle).fetch(name) do
+      raise "No golden #{oracle} #{tool} output for #{name}. Run: mise run oracle:golden"
+    end
+  end
+
+  def run(tool, oracle, path)
+    out, err, status = Open3.capture3(File.join(ORACLE_DIR, tool), oracle, path)
     raise "#{oracle} #{tool} oracle failed on #{path}: #{err}" unless status.success?
 
     out
+  end
+
+  def golden_path(tool, oracle)
+    File.join(GOLDEN_DIR, "#{tool}-#{oracle}.json")
+  end
+
+  def golden(tool, oracle)
+    @golden ||= {}
+    @golden[[tool, oracle]] ||= JSON.parse(File.read(golden_path(tool, oracle)))
+  end
+
+  # Raises unless the oracles are built. Only live runs need them.
+  def require_oracles!(binary)
+    return unless live?
+    return if File.exist?(File.join(ORACLE_DIR, ".cache/bin", binary))
+
+    raise "Oracles are not built. Run: mise run oracle:setup"
   end
 end
