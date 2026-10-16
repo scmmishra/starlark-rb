@@ -1,0 +1,5 @@
+# Conformance chunks that fail today, with the reason. The conformance spec
+# marks them as pending, and fails if one starts to pass.
+go/builtins.star:64: The expected error "Error in sorted" is Java's wording. starlark-go and we report the same message as each other.
+go/builtins.star:69: The expected error "Error in sorted" is Java's wording. starlark-go and we report the same message as each other.
+go/builtins.star:74: The expected error "Error in sorted" is Java's wording. starlark-go and we report the same message as each other.

@@ -20,10 +20,15 @@ module OracleInputs
   GOLDEN_DIR = File.join(SPEC_DIR, "oracle/golden")
   CHUNK_DIR = File.join(ORACLE_DIR, ".cache/chunks")
   CHUNK_SEPARATOR = "---"
-  TOOLS = %w[lex parse resolve].freeze
+  TOOLS = %w[lex parse resolve eval].freeze
   ORACLES = %w[go java].freeze
 
   module_function
+
+  # The oracles each tool has. There is no Java eval oracle yet.
+  def oracles_for(tool)
+    tool == "eval" ? %w[go] : ORACLES
+  end
 
   def live?
     ENV["ORACLE_LIVE"] == "1"
@@ -35,6 +40,7 @@ module OracleInputs
     when "lex" then whole_files("{conformance/testdata,lexer/corpus}")
     when "parse" then collect("parser/corpus")
     when "resolve" then collect("resolver/corpus")
+    when "eval" then collect("evaluator/corpus")
     end
   end
 
@@ -90,7 +96,18 @@ module OracleInputs
 
   def golden(tool, oracle)
     @golden ||= {}
-    @golden[[tool, oracle]] ||= JSON.parse(File.read(golden_path(tool, oracle)))
+    @golden[[tool, oracle]] ||= JSON.parse(File.read(golden_path(tool, oracle))).transform_values { |entry| decode(entry) }
+  end
+
+  # JSON holds only valid UTF-8. Output with invalid bytes, such as a print
+  # of a bytes value, is stored as {"base64": ...}.
+  def encode(text)
+    utf8 = text.dup.force_encoding(Encoding::UTF_8)
+    utf8.valid_encoding? ? utf8 : { "base64" => [text].pack("m0") }
+  end
+
+  def decode(entry)
+    entry.is_a?(Hash) ? entry.fetch("base64").unpack1("m0").force_encoding(Encoding::UTF_8) : entry
   end
 
   # Raises unless the oracles are built. Only live runs need them.

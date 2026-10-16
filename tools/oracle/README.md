@@ -1,6 +1,6 @@
 # Oracles
 
-These tools print what starlark-go and Java Starlark produce for a file: the tokens from their lexers, the syntax trees from their parsers, and the name bindings and static errors from their resolvers. Specs in `spec/oracle` compare our code against them.
+These tools print what starlark-go and Java Starlark produce for a file: the tokens from their lexers, the syntax trees from their parsers, the name bindings and static errors from their resolvers, and the result of running it. Specs in `spec/oracle` compare our code against them. There is a Java oracle for every stage except evaluation.
 
 The gem does not depend on these tools. They need Go and Java, which `.mise.toml` installs.
 
@@ -22,6 +22,7 @@ mise run oracle:setup
 tools/oracle/lex go|java FILE
 tools/oracle/parse go|java FILE
 tools/oracle/resolve go|java FILE
+tools/oracle/eval go FILE
 mise run oracle:go      # compare our lexer, parser, and resolver with Go's golden output
 mise run oracle:java    # compare with Java's golden output
 ```
@@ -132,9 +133,28 @@ Both use options that match the spec. starlark-go has `Set` on, because `set` is
 
 The Java comparison collapses any error output to "has errors", because Java's wording, order, and extra notes differ.
 
+## Eval output format
+
+The eval dump runs the file with starlark-go's interpreter.
+
+```
+print hi [0, 1, 4, 9]
+global f = <function f>
+global x = [0, 1, 4, 9]
+```
+
+- Each `print()` call adds a `print` line with its message.
+- After a successful run, each global adds a `global NAME = REPR` line, sorted by name.
+- An error adds one line, `ERROR MESSAGE`, with no position. This covers syntax, static, and dynamic errors.
+- Backslashes and newlines in a message are escaped, so each record stays on one line.
+
+The dumper predeclares `assert_eq`, `assert_ne`, and `assert_`, which fail on mismatch. It removes `chr` and `ord`, which starlark-go has and the spec does not. It runs with `set` enabled and every other dialect option off.
+
+Output that is not valid UTF-8, such as a print of a bytes value, is stored in the golden file as `{"base64": ...}`.
+
 ## Known differences
 
-Where the spec and starlark-go disagree, we follow the spec. Those cases are `override_` files with `.expected` output, listed in the README of each corpus under `spec/lexer`, `spec/parser`, and `spec/resolver`.
+Where the spec and starlark-go disagree, we follow the spec. Those cases are `override_` files with `.expected` output, listed in the README of each corpus under `spec/lexer`, `spec/parser`, `spec/resolver`, and `spec/evaluator`.
 
 Every file where Java differs from us is listed with a reason in `spec/oracle/java_lexer_known_differences.yml`, `java_parser_known_differences.yml`, or `java_resolver_known_differences.yml`. The Java specs mark those files as pending.
 

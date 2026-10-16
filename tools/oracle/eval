@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Prints the result of running FILE by starlark-go or Java Starlark.
+# Run tools/oracle/setup first.
+set -euo pipefail
+
+if [ $# -ne 2 ] || { [ "$1" != go ] && [ "$1" != java ]; }; then
+  echo "usage: tools/oracle/eval go|java FILE" >&2
+  exit 2
+fi
+
+CACHE="$(cd "$(dirname "$0")" && pwd)/.cache"
+
+case "$1" in
+  go) exec "$CACHE/bin/evaldump-go" "$2" ;;
+  java) echo "no Java eval oracle yet" >&2; exit 2 ;;
+esac

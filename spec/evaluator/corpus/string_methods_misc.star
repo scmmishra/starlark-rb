@@ -1,0 +1,1 @@
+print('a-b-c'.replace('-', '+'), 'a-b-c'.replace('-', '+', 1), 'abc'.replace('', '.'), 'abc'.replace('', '.', 2), ', '.join(['a', 'b']), ''.join([]), 'one/two/three'.partition('/'), 'one/two/three'.rpartition('/'), 'x'.partition('/'), 'x'.rpartition('/'), 'banana'.removeprefix('ban'), 'banana'.removesuffix('na'), 'banana'.removeprefix('x'))

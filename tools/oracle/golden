@@ -18,7 +18,7 @@ abort "Oracles are not built. Run: mise run oracle:setup" unless Dir.exist?(File
 FileUtils.mkdir_p(OracleInputs::GOLDEN_DIR)
 OracleInputs::TOOLS.each do |tool|
   inputs = OracleInputs.for_tool(tool)
-  OracleInputs::ORACLES.each do |oracle|
+  OracleInputs.oracles_for(tool).each do |oracle|
     queue = Queue.new
     inputs.each { |input| queue << input }
     results = Queue.new
@@ -31,7 +31,7 @@ OracleInputs::TOOLS.each do |tool|
       end
     end.each(&:join)
 
-    output = Array.new(results.size) { results.pop }.sort.to_h
+    output = Array.new(results.size) { results.pop }.sort.to_h.transform_values { |text| OracleInputs.encode(text) }
     File.write(OracleInputs.golden_path(tool, oracle), "#{JSON.pretty_generate(output)}\n")
     puts format("%-8s %-5s %4d inputs", tool, oracle, output.size)
   end

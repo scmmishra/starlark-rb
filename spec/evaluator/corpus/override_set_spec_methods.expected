@@ -1,0 +1,4 @@
+print set([1, 4])
+print set([1, 4])
+print set([1, 6]) True False set([3]) set([2]) set([1, 2, 3, 4])
+global s = set([1, 6])

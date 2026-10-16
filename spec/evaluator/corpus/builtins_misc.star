@@ -1,0 +1,3 @@
+print(abs(-3), abs(-2.5), any([0, 1]), all([1, 0]), any([]), all([]), bool(), bool([]), bool('x'), len('abc'), len({1: 2}), list(), list('ab'.elems()), reversed([1, 2, 3]), reversed(range(3)), type(None), type(1), type(1.0), type(''), type([]), type({}), type(()), type(set()), type(range(1)), type(len), type(lambda: 1))
+print(enumerate(['a', 'b']), enumerate(['a'], 5), zip(), zip([1, 2], 'ab'.elems()), zip([1, 2, 3], [4]), max(3, 1, 2), min([3, 1, 2]), max('two', 'three', key=len), min([5, 10], key=lambda x: -x), sorted([3, 1, 2], reverse=True), sorted(['bb', 'a', 'ccc'], key=len))
+print(repr('x'), str('x'), str(1), str([1, 'a']), str(None), str(True), dir([])[:3], hasattr('', 'upper'), hasattr('', 'nope'), getattr('ab', 'upper')(), getattr('ab', 'nope', 'dflt'))
