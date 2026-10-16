@@ -21,6 +21,8 @@ Name the spec section in a code comment for each such decision. Add no behavior 
   - Ruby methods like `downcase`, `upcase`, and regexes raise on invalid UTF-8. Test each string builtin with invalid input.
   - `bytes` wraps a frozen `Encoding::BINARY` string.
 - **Values.** `int`, `float`, `string`, `bool`, `None` are Ruby `Integer`, `Float`, frozen `String`, `true`/`false`, `nil`. Containers, `bytes`, and functions are our own classes.
+- **Spec over Go in the evaluator.** Indexing bytes returns an int. `1.5 in range(5)` is False. `splitlines` also splits at `\r`. Sets have every method the spec lists, and `difference`, `intersection`, and `union` take any number of arguments. `hash` of a string counts UTF-16 units, like Java. See `spec/evaluator/corpus/README.md`.
+- **Go limits kept.** A shift of 512 bits or more and a repeat of 2**30 elements or more fail with starlark-go's messages. Our own size limits run before them and are host settings.
 
 ## Ruby semantics that differ
 
@@ -47,26 +49,25 @@ Code is in `lib/starlark/`, loaded by `lib/starlark.rb`.
 1. **Lexer** (`lexer.rb`, done). A port of starlark-go's scanner, except where the spec differs.
 2. **Parser** (`parser.rb`, done). A port of starlark-go's recursive-descent parser, except where the spec differs. Builds the nodes in `ast.rb`. No parser generators.
 3. **Resolver** (`resolver.rb`, done). A port of starlark-go's resolver, except where the spec differs. Returns a `Resolution` that maps naming nodes to bindings, because AST nodes are frozen. Reports every static error in a `ResolveError`.
-4. **Evaluator.** Walks the resolved AST. No bytecode VM unless benchmarks demand it.
-5. **Embedding API.** Host names, value conversion, limits, and a `load()` callback.
+4. **Evaluator** (`evaluator.rb`, done). Walks the resolved AST. No bytecode VM unless benchmarks demand it. Values are in `values.rb`, operators in `operators.rb`, builtins in `builtins.rb`, and methods in `methods.rb`. Builtins port starlark-go's, including its error messages.
+5. **Embedding API** (`embedding.rb`, done). `Starlark.exec` takes host globals, a `print` callback, a `load` callback, and the limits in `limits.rb`. `Starlark.from_ruby`, `Starlark.to_ruby`, and `Starlark.function` convert values. A host object exposes fields through `starlark_attr`, `starlark_attr_names`, `starlark_set_attr`, `starlark_type`, and `starlark_repr`.
 
 ## Testing
 
-- **Oracles.** `spec/oracle` compares our lexer, parser, and resolver with starlark-go and Java Starlark. `oracle:go` and `oracle:java` must pass. Each case where we follow the spec over Go is an `override_` file with a `.expected` file in `spec/lexer/corpus/`, `spec/parser/corpus/`, or `spec/resolver/corpus/`. Each known Java difference is listed with a reason in `spec/oracle/java_*_known_differences.yml`. See `tools/oracle/README.md`.
-- **Conformance suite.** Vendored in `spec/conformance/testdata/`. The runner is not written yet. When writing it:
+- **Oracles.** `spec/oracle` compares our lexer, parser, and resolver with starlark-go and Java Starlark, and our evaluator with starlark-go. There is no Java eval oracle yet. `oracle:go` and `oracle:java` must pass. Each case where we follow the spec over Go is an `override_` file with a `.expected` file in `spec/lexer/corpus/`, `spec/parser/corpus/`, `spec/resolver/corpus/`, or `spec/evaluator/corpus/`. Each known Java difference is listed with a reason in `spec/oracle/java_*_known_differences.yml`. See `tools/oracle/README.md`.
+- **Conformance suite.** Vendored in `spec/conformance/testdata/`. `spec/conformance/conformance_spec.rb` runs each chunk as an example.
   - A `---` line separates chunks. A trailing `### regex` marks a line that must fail with a matching error, case-insensitive, as substring or regex.
-  - Follow `### go:` tags, because Go shares our string model.
-  - A failed `assert_eq` must fail the test. The upstream runner misses this.
-  - Leave cases marked `_inconsistency_` commented out unless the spec defines them.
-- **Golden files.** The oracle specs compare against the oracles' stored output in `spec/oracle/golden`, so they need neither Go nor Java and run in seconds. After adding or changing a corpus file, run `mise run oracle:golden` and commit the result. CI fails if the golden files are out of date.
-- Write RSpec tests for each spec section as it is implemented.
+  - It follows `### go:` tags, because Go shares our string model.
+  - A failed `assert_eq` fails the example. The upstream runner misses this.
+  - Cases marked `_inconsistency_` stay commented out unless the spec defines them.
+  - `spec/conformance/known_failures.yml` lists chunks that expect Java's wording, with a reason for each.
 
 ## Testing tools
 
 - **mutant** (in use). Mutation testing: it changes our code in small ways and reports changes no test catches. Run `mise run mutant`, or `bundle exec mutant run 'Starlark::Resolver*'` for one class. Config is in `.mutant.yml`. It is free for open source with `usage: opensource`. Commercial use needs a paid license. Tests for a class must sit under `RSpec.describe Starlark::ClassName`, or mutant does not select them. Some surviving mutants cannot change behavior. Remove the dead code they point at, or leave them, but do not write tests that only exist to kill them.
 - **prop_check** (planned, for the builtins). Property-based testing with shrinking, for rules that no oracle checks. Examples: string methods never raise a Ruby error on invalid UTF-8, size checks raise before large allocations, and `hash()` matches Java's `String.hashCode`.
 - **benchmark-ips** (planned). Use it before any speed decision, such as tree-walking versus closure compilation in the evaluator, or `StringScanner` in the lexer.
-- **Ruzzy** (planned, for the evaluator). A coverage-guided fuzzer from Trail of Bits. A harness would run untrusted scripts under tight step and memory limits, and fail on any Ruby exception, hang, or memory blowup. It needs a native build with LLVM clang, so it fits a nightly CI job better than every PR.
+- **Ruzzy** (planned, for the evaluator). The differential fuzzer already has an `eval` mode. Ruzzy is a coverage-guided fuzzer from Trail of Bits. A harness would run untrusted scripts under tight step and memory limits, and fail on any Ruby exception, hang, or memory blowup. It needs a native build with LLVM clang, so it fits a nightly CI job better than every PR.
 
 ## Commands
 
