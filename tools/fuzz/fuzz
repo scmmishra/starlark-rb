@@ -6,7 +6,7 @@
 #
 #   tools/fuzz/fuzz [MODE] [--count N] [--seed S] [--jobs J]
 #
-# MODE is grammar, mutate, unicode, floats, or all (the default).
+# MODE is grammar, mutate, eval, unicode, floats, or all (the default).
 # Run `mise run oracle:setup` first. See tools/fuzz/README.md.
 
 require "digest"
@@ -21,6 +21,7 @@ require "starlark"
 require_relative "../../spec/support/ast_dump"
 require_relative "../../spec/support/token_dump"
 require_relative "../../spec/support/resolve_dump"
+require_relative "../../spec/support/eval_dump"
 require_relative "generator"
 require_relative "mutator"
 
@@ -34,7 +35,7 @@ KNOWN_DIFFERENCE_BYTES = Regexp.new(KNOWN_DIFFERENCE.source.b, Regexp::NOENCODIN
 
 options = { count: 2000, seed: Random.new_seed % 1_000_000, jobs: 8 }
 OptionParser.new do |o|
-  o.banner = "usage: tools/fuzz/fuzz [grammar|mutate|unicode|floats|all] [options]"
+  o.banner = "usage: tools/fuzz/fuzz [grammar|mutate|eval|unicode|floats|all] [options]"
   o.on("--count N", Integer, "inputs per random mode (default 2000)") { |v| options[:count] = v }
   o.on("--seed S", Integer, "random seed (default: random)") { |v| options[:seed] = v }
   o.on("--jobs J", Integer, "parallel oracle runs (default 8)") { |v| options[:jobs] = v }
@@ -46,6 +47,37 @@ abort "Oracles are not built. Run: mise run oracle:setup" unless File.exist?(Fil
 # programs resolve without undefined names.
 PREDECLARED = Fuzz::Generator::NAMES.reject { |name| Starlark::Resolver::UNIVERSAL.include?(name) }
 ORACLE_ENV = { "STARLARK_ORACLE_PREDECLARED" => PREDECLARED.join(" ") }.freeze
+
+# Gives each name the generator uses a value, so generated programs run.
+# Many still fail at runtime, and both interpreters must report the same error.
+EVAL_PRELUDE = <<~STAR
+  x = 1
+  y = "s"
+  z = [1, 2]
+  a = {"k": 1}
+  b = (1, "t")
+  f = lambda *args, **kwargs: args
+  g = len
+  h = 2.5
+  i = True
+  j = None
+  k = set([1])
+  v = range(3)
+  w = -3
+  n = 0
+  s = "abc"
+  t = [[1], [2]]
+  x1 = 7
+  éclair = "é"
+  π = 3.14
+  世界 = {"a": [1]}
+  _ = 0
+  _x = "u"
+STAR
+
+# Mismatches on these are expected: we follow the spec where starlark-go
+# does not. See the override files in spec/evaluator/corpus.
+EVAL_KNOWN_DIFFERENCE = /splitlines|_update|isdisjoint|difference|intersection|union|hash|range|\bb['"]|\brb['"]/
 
 def oracle(tool, path)
   out, err, status = Open3.capture3(ORACLE_ENV, File.join(ORACLE, tool), "go", path)
@@ -90,6 +122,51 @@ def check(source, dir)
   findings
 ensure
   File.delete(path) if path && File.exist?(path)
+end
+
+# Inputs on which starlark-go itself crashed. starlark-go panics, for example,
+# on set([1]).issubset() with no argument.
+ORACLE_CRASHES = Queue.new
+
+def check_eval(source, dir)
+  program = EVAL_PRELUDE + source
+  path = File.join(dir, "#{Thread.current.object_id}-eval-#{Digest::SHA256.hexdigest(program)[0, 16]}.star")
+  File.binwrite(path, program)
+  expected = begin
+    oracle("eval", path)
+  rescue RuntimeError => e
+    raise unless e.message.include?("panic:")
+
+    ORACLE_CRASHES << source
+    return []
+  end
+  actual = EvalDump.call(program.dup.force_encoding(Encoding::UTF_8))
+  return [] if expected == actual || source.match?(KNOWN_DIFFERENCE) || source.match?(EVAL_KNOWN_DIFFERENCE)
+
+  [save("eval", program, expected, actual)]
+ensure
+  File.delete(path) if path && File.exist?(path)
+end
+
+def run_eval_inputs(inputs, jobs)
+  queue = Queue.new
+  inputs.each { |input| queue << input }
+  findings = Queue.new
+  Dir.mktmpdir("starlark-fuzz") do |dir|
+    Array.new(jobs) do
+      Thread.new do
+        while (input = (queue.pop(true) rescue nil))
+          check_eval(input, dir).each { |f| findings << f }
+        end
+      end
+    end.each(&:join)
+  end
+  saved = Array.new(findings.size) { findings.pop }
+  crashes = ORACLE_CRASHES.size
+  puts format("%-8s %6d inputs, %d mismatches%s", "eval", inputs.size, saved.size,
+              crashes.positive? ? ", #{crashes} skipped because starlark-go crashed" : "")
+  saved.first(10).each { |f| puts "  #{f.delete_prefix("#{ROOT}/")}" }
+  saved
 end
 
 def run_inputs(name, inputs, jobs)
@@ -150,7 +227,7 @@ end
 
 random = Random.new(options[:seed])
 puts "seed #{options[:seed]}"
-modes = mode == "all" ? %w[grammar mutate unicode floats] : [mode]
+modes = mode == "all" ? %w[grammar mutate eval unicode floats] : [mode]
 total = 0
 modes.each do |m|
   total += case m
@@ -160,6 +237,9 @@ modes.each do |m|
            when "mutate"
              mutator = Fuzz::Mutator.new(random, seeds)
              run_inputs("mutate", Array.new(options[:count]) { mutator.mutate }, options[:jobs]).size
+           when "eval"
+             generator = Fuzz::Generator.new(random)
+             run_eval_inputs(Array.new(options[:count]) { generator.eval_statement }, options[:jobs]).size
            when "unicode" then unicode_check.size
            when "floats" then run_inputs("floats", float_inputs(random, options[:count] * 10), options[:jobs]).size
            else abort "unknown mode: #{m}"

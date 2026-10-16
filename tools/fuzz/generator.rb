@@ -40,6 +40,101 @@ module Fuzz
     def chance(probability) = @random.rand < probability
     def pick(list) = list[rand(list.size)]
 
+    # One top-level statement that the evaluator can run: an assignment, an
+    # expression, or a def followed by a call. No load, and no top-level if
+    # or for, which would fail before anything runs.
+    def eval_statement
+      @fresh = 0
+      @in_function = false
+      @in_loop = false
+      case rand(10)
+      when 0
+        name = fresh_name
+        "#{def_stmt_named(name)}#{name}(#{args(1)})\n"
+      when 1, 2 then "#{fresh_name} = #{expr_list}\n"
+      when 3, 4, 5 then "#{fresh_name} = #{numeric_expr(0)}\n"
+      when 6, 7 then "#{fresh_name} = #{method_call}\n"
+      else "#{expr_list}\n"
+      end
+    end
+
+    ARITHMETIC_OPS = %w[+ - * / // % == != < <= > >=].freeze
+    INTEGER_OPS = %w[& | ^ + - * // %].freeze
+    INT_ATOMS = %w[0 1 2 3 7 -1 -2 -7 10 255 1000 -1000 0x7f 0o17 18446744073709551616 -9223372036854775809
+                   123456789012345678901234567890].freeze
+    FLOAT_ATOMS = %w[0.5 -0.5 2.5 -2.5 1e10 -1e-3 1e308 0.0 -0.0 3.0 -7.0].freeze
+
+    # Arithmetic that mostly succeeds, so results are compared, not only
+    # errors. Bitwise operators and shifts get integer operands.
+    def numeric_expr(depth)
+      return chance(0.6) ? integer_expr(depth) : pick(INT_ATOMS + FLOAT_ATOMS + %w[True False]) if depth > 2
+
+      case rand(7)
+      when 0 then "-#{numeric_expr(depth + 1)}"
+      when 1 then "#{pick(%w[int float abs str bool])}(#{numeric_expr(depth + 1)})"
+      when 2 then "(#{numeric_expr(depth + 1)} if #{numeric_expr(depth + 1)} else #{numeric_expr(depth + 1)})"
+      when 3, 4 then integer_expr(depth)
+      else "(#{numeric_expr(depth + 1)} #{pick(ARITHMETIC_OPS)} #{numeric_expr(depth + 1)})"
+      end
+    end
+
+    def integer_expr(depth)
+      return pick(INT_ATOMS) if depth > 2 || chance(0.3)
+
+      case rand(5)
+      when 0 then "~#{integer_expr(depth + 1)}"
+      when 1 then "(#{integer_expr(depth + 1)} #{pick(%w[<< >>])} #{rand(0..70)})"
+      else "(#{integer_expr(depth + 1)} #{pick(INTEGER_OPS)} #{integer_expr(depth + 1)})"
+      end
+    end
+
+    STRING_METHODS = {
+      "capitalize" => [], "count" => [:str], "endswith" => [:str], "find" => [:str], "format" => [:any],
+      "index" => [:str], "isalnum" => [], "isalpha" => [], "isdigit" => [], "islower" => [], "isspace" => [],
+      "istitle" => [], "isupper" => [], "join" => [:strlist], "lower" => [], "lstrip" => [:str], "partition" => [:str],
+      "removeprefix" => [:str], "removesuffix" => [:str], "replace" => %i[str str], "rfind" => [:str],
+      "rindex" => [:str], "rpartition" => [:str], "rsplit" => [:str], "rstrip" => [:str], "split" => [:str],
+      "startswith" => [:str], "strip" => [:str], "title" => [], "upper" => []
+    }.freeze
+    LIST_METHODS = { "append" => [:any], "extend" => [:list], "index" => [:any], "insert" => %i[int any],
+                     "pop" => [:int], "remove" => [:any], "clear" => [] }.freeze
+    DICT_METHODS = { "get" => [:any], "items" => [], "keys" => [], "values" => [], "pop" => %i[any any],
+                     "setdefault" => %i[any any], "update" => [:dict], "popitem" => [], "clear" => [] }.freeze
+    SET_METHODS = { "add" => [:any], "discard" => [:any], "issubset" => [:list], "issuperset" => [:list],
+                    "symmetric_difference" => [:list], "pop" => [], "remove" => [:any], "clear" => [] }.freeze
+    WORDS = ["", "a", "ab", "Hello World", "  pad  ", "a,b,,c", "ǅx", "é😀", "one two  three", "x-y-z", "ABC def"].freeze
+
+    # A method call with arguments of the expected types. Some calls still
+    # fail, for example index of a missing value.
+    def method_call
+      case rand(4)
+      when 0 then call_text(Quote_text(pick(WORDS)), STRING_METHODS)
+      when 1 then call_text("[1, 2, 3, 2]", LIST_METHODS)
+      when 2 then call_text("{\"a\": 1, 2: \"b\"}", DICT_METHODS)
+      else call_text("set([1, 2, 3])", SET_METHODS)
+      end
+    end
+
+    def call_text(receiver, methods)
+      name = pick(methods.keys)
+      args = methods.fetch(name).first(rand(0..methods.fetch(name).length)).map { |kind| method_arg(kind) }
+      "#{receiver}.#{name}(#{args.join(", ")})"
+    end
+
+    def method_arg(kind)
+      case kind
+      when :str then Quote_text(pick(WORDS + [",", " ", "b", "a"]))
+      when :strlist then "[#{Array.new(rand(0..3)) { Quote_text(pick(WORDS)) }.join(", ")}]"
+      when :int then pick(%w[0 1 -1 2 10 -10])
+      when :list then "[#{Array.new(rand(0..3)) { pick(%w[1 2 3 4 "a"]) }.join(", ")}]"
+      when :dict then "{#{pick(['"a": 9', '3: 4', ''])}}"
+      else pick(%w[1 2 "a" None 2.0 (1,) [1]])
+      end
+    end
+
+    def Quote_text(text) = "\"#{text}\""
+    public :eval_statement
+
     # A rare top-level if or for keeps the resolver's errors in the mix.
     def top_level_statement
       return pick([if_stmt(0, 0), for_stmt(0, 0)]) if chance(0.03)
@@ -92,6 +187,10 @@ module Fuzz
     def def_stmt(level, depth = 0)
       name = @in_function ? pick(LOCAL_NAMES) : fresh_name
       "#{indent(level)}def #{name}(#{params}):#{within(function: true, loop: false) { suite(level, depth) }}"
+    end
+
+    def def_stmt_named(name)
+      "def #{name}(#{params}):#{within(function: true, loop: false) { suite(0, 0) }}"
     end
 
     def if_stmt(level, depth)
